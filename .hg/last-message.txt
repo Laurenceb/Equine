@@ -1,0 +1,1 @@
+Improved autobrightness to work with low LED duty cycles

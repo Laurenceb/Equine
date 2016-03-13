@@ -1,0 +1,429 @@
+#include <string.h>
+#include <math.h>
+#include "stm32f10x.h"
+#include "main.h"
+#include "adc.h"
+#include "gpio.h"
+#include "usart.h"
+#include "interrupts.h"
+#include "watchdog.h"
+#include "Util/rprintf.h"
+#include "Util/delay.h"
+#include "usb_lib.h"
+#include "Util/USB/hw_config.h"
+#include "Util/USB/usb_pwr.h"
+#include "Util/fat_fs/inc/diskio.h"
+#include "Util/fat_fs/inc/ff.h"
+#include "Util/fat_fs/inc/integer.h"
+#include "Util/fat_fs/inc/rtc.h"
+
+
+//newlib reent context
+struct _reent my_reent;
+
+
+
+//Global variables - other files (e.g. hardware interface/drivers) may have their own globals
+extern uint16_t MAL_Init (uint8_t lun);			//For the USB filesystem driver
+volatile uint8_t file_opened=0;				//So we know to close any opened files before turning off
+uint8_t print_string[256];				//For printf data
+UINT a;							//File bytes counter
+volatile uint32_t Millis;				//System uptime (rollover after 50 days)
+volatile uint32_t Last_WDT;				//For detection of a jammed state
+volatile uint8_t System_state_Global;			//Stores the system state, controlled by the button, most significant bit is a flag
+volatile uint8_t Shutdown_System;			//Used to order a system shutdown to sleep mode
+volatile float battery_level;
+
+volatile uint16_t* ADCoutbuff;
+
+
+char SerialNumber[20];
+uint32_t flashCode=0;
+uint8_t flashCodeEnabled=0;
+int8_t rtc_correction=31;			//Too large to be used	
+uint8_t required_sensors=0;			//Used to set the minimum required sensors	
+//FatFs filesystem globals go here
+FRESULT f_err_code;
+static FATFS FATFS_Obj;
+FIL FATFS_logfile;
+FILINFO FATFS_info;
+//volatile int bar[3] __attribute__ ((section (".noinit"))) ;//= 0xaa
+
+int main(void)
+{
+	uint8_t system_state=0;				//used to track button press functionality
+	float sensor_data;
+	wave_stuffer this_stuffer={};			//used for file stuffing
+	RTC_t RTC_time;
+	_REENT_INIT_PTR(&my_reent);
+	_impure_ptr = &my_reent;
+	SystemInit();					//Sets up the clk
+	setup_gpio();					//Initialised pins, and detects boot source
+	DBGMCU_Config(DBGMCU_IWDG_STOP, ENABLE);	//Watchdog stopped during JTAG halt
+	if(RCC->CSR&RCC_CSR_IWDGRSTF) {			//Watchdog reset, turn off
+		RCC->CSR|=RCC_CSR_RMVF;			//Reset the reset flags
+		shutdown();
+	}
+	SysTick_Configuration();			//Start up system timer at 100Hz for uSD card functionality
+	Watchdog_Config(WATCHDOG_TIMEOUT);		//Set the watchdog
+	Watchdog_Reset();				//Reset watchdog as soon as possible incase it is still running at power on
+	rtc_init();					//Real time clock initialise - (keeps time unchanged if set)
+	Usarts_Init();
+	ISR_Config();
+	rprintfInit(__usart_send_char);			//Printf over the bluetooth
+	if(USB_SOURCE==bootsource) {
+		Set_System();				//This actually just inits the storage layer
+		Set_USBClock();
+		USB_Interrupts_Config();
+		USB_Init();
+		uint32_t nojack=0x000FFFFF;		//Countdown timer - a few hundered ms of 0v on jack detect forces a shutdown
+		while (bDeviceState != CONFIGURED) {	//Wait for USB config - timeout causes shutdown
+			if((Millis>10000 && bDeviceState == UNCONNECTED)|| !nojack) { //No USB cable - shutdown (Charger pin will be set to open drain, cant be disabled without usb)
+				shutdown();
+			}
+			if(GET_VBUS_STATE) {		//Jack detect resets the countdown
+				nojack=0x0FFFFF;
+			}
+			if (bDeviceState == SUSPENDED) {
+				CHRG_ON;
+			}
+			nojack--;
+			Watchdog_Reset();		//Reset watchdog here, if we are stalled here the Millis timeout should catch us
+		}
+		USB_Configured_LED();
+		EXTI_ONOFF_EN();			//Enable the off interrupt - allow some time for debouncing
+		ADC_Battery_Configuration();            //Enable ADC for battery voltage measurment
+		uint32_t millis_local=0;
+		uint16_t flash_cycle_time=1000;
+		while(1) {				//If running off USB (mounted as mass storage), stay in this loop - dont turn on anything
+			if((Millis-millis_local)%flash_cycle_time<100) {//Only update during the initial LED flash - 100ms leeway to allow other tasks
+				if(battery_level>3.97) {//20% bands derived from test of Farnell 1.3Ah lipo cell
+					flash_cycle_time=2000;
+				}
+				else if(battery_level>3.85) {
+					flash_cycle_time=1750;
+				}
+				else if(battery_level>3.77) {
+					flash_cycle_time=1500;
+				}
+				else if(battery_level>3.72) {
+					flash_cycle_time=1250;
+				}
+				else {
+					flash_cycle_time=1000;
+				}
+				millis_local=Millis-100;//Store this to avoid running again for an entire cycle
+			}
+			uint16_t time_index=(Millis-millis_local)%flash_cycle_time;//Index into our flash sequence in milliseconds
+			if(time_index<500) {		//1Hz on/off flashing at zero charge, with extra trailing flashes as battery charges
+				switch_leds_on();    	//Flash the LED(s)
+			}
+			else if((flash_cycle_time-time_index)>=500 && ((time_index-500)%250)>125) { //The leds are off for the last 500ms of the period
+				switch_leds_on();
+			}
+			else {
+				switch_leds_off();
+			}
+			if(!(Millis%1000)) {
+#if BOARD<3
+				if (bDeviceState == SUSPENDED) {
+					CHRG_ON;	//On early board versions use charge pin
+					Delay(100);
+				}
+#endif
+				if(!GET_VBUS_STATE) {
+					CHRG_OFF;
+					red_flash();
+					shutdown();
+				}
+				if (bDeviceState == SUSPENDED)
+					CHRG_OFF;
+			}
+			Watchdog_Reset();
+			__WFI();			//Sleep mode
+		}
+	}
+	if(!GET_PWR_STATE &&  !(CoreDebug->DHCSR&0x00000001)) {//Check here to make sure the power button is still pressed, if not, sleep if no debug
+		shutdown();    				//This means a glitch on the supply line, or a power glitch results in sleep
+	}
+	//Check to see if battery has enough charge to start
+	ADC_Configuration();				//We leave this a bit later to allow stabilisation
+	do {						//Sensor+inst amplifier takes about 100ms to stabilise after power on
+		sensor_data=battery_level;		//Have to flush adc for some reason
+		Delay(25000);
+	}
+	while(fabs(battery_level-sensor_data)>0.01 || !sensor_data);
+	if(sensor_data<BATTERY_STARTUP_LIMIT) {		//We will have to turn off
+		Watchdog_Reset();			//LED flashing takes a while
+		red_flash();
+		Delay(400000);
+		red_flash();				//Two flashes means battery abort -----------------ABORT 2
+		shutdown();
+	}
+	// system has passed battery level check and so file can be opened
+	if((f_err_code = f_mount(0, &FATFS_Obj))) {
+		Usart_Send_Str((char*)"FatFs mount error\r\n");    //This should only error if internal error
+	}
+	else {						//FATFS initialised ok, try init the card, this also sets up the SPI1
+		if(!f_open(&FATFS_logfile,"time.txt",FA_OPEN_EXISTING | FA_READ | FA_WRITE)) {//Try and open a time file to get the system time
+			if(!f_stat((const TCHAR *)"time.txt",&FATFS_info)) {//Get file info
+				if(FATFS_info.fsize<5) {	//Empty file
+					RTC_time.year=(FATFS_info.fdate>>9)+1980;//populate the time struct (FAT start==1980, RTC.year==0)
+					RTC_time.month=(FATFS_info.fdate>>5)&0x000F;
+					RTC_time.mday=FATFS_info.fdate&0x001F;
+					RTC_time.hour=(FATFS_info.ftime>>11)&0x001F;
+					RTC_time.min=(FATFS_info.ftime>>5)&0x003F;
+					RTC_time.sec=(FATFS_info.ftime<<1)&0x003E;
+					rtc_settime(&RTC_time);
+					rprintfInit(__fat_print_char);//printf to the open file
+					printf("RTC set to %d/%d/%d %d:%d:%d\n",RTC_time.mday,RTC_time.month,RTC_time.year,\
+					       RTC_time.hour,RTC_time.min,RTC_time.sec);
+				}
+			}
+			f_close(&FATFS_logfile);	//Close the time.txt file
+		}
+		// Load settings if file exists
+		if(!f_open(&FATFS_logfile,"settings.dat",FA_OPEN_EXISTING | FA_READ)) {
+			UINT br;
+			f_read(&FATFS_logfile, (void*)(&sensor_data),4,&br);
+			f_read(&FATFS_logfile, (void*)(&sensor_data),4,&br);
+			f_read(&FATFS_logfile, (void*)(&sensor_data),4,&br);
+			f_read(&FATFS_logfile, (void*)(&sensor_data),4,&br);
+			f_read(&FATFS_logfile, (void*)(&sensor_data),1,&br);//Unused but keep the same format
+			/*Try to load a signed 8bit integer holding RTC calibration in the range +-63ppm*/
+			f_read(&FATFS_logfile, (void*)(&rtc_correction),1,&br);
+			if(br && (rtc_correction<30) && (rtc_correction>-92) && rtc_correction ) {
+				PWR_BackupAccessCmd(ENABLE);/* Allow access to BKP Domain */
+				uint16_t tweaked_prescale = (0x0001<<15)-2;/* Try to run the RTC slightly too fast so it can be corrected either way */
+				RTC_WaitForSynchro();	/* Wait for RTC registers synchronization */
+				if( RTC->PRLL != tweaked_prescale ) {/*Note that there is a 0.5ppm offset here (correction 0==0.5ppm slow)*/
+					RTC_SetPrescaler(tweaked_prescale); /* RTC period = RTCCLK/RTC_PR = (32.768 KHz)/(32767-2+1) */
+					RTC_WaitForLastTask();
+				}
+				BKP_SetRTCCalibrationValue((uint8_t) ((int16_t)31-(21*(int16_t)rtc_correction)/(int16_t)20) );
+                                BKP_RTCOutputConfig(BKP_RTCOutputSource_None);/* Ensure any output is disabled here */
+				/* Lock access to BKP Domain */
+				PWR_BackupAccessCmd(DISABLE);
+			}
+			else if(br && ((uint8_t)rtc_correction==0x91) ) {/* 0x91 magic flag sets the RTC clock output on */
+				PWR_BackupAccessCmd(ENABLE);/* Allow access to BKP Domain */
+				BKP_RTCOutputConfig(BKP_RTCOutputSource_CalibClock);/* Output a 512Hz reference clock on the TAMPER pin*/
+				PWR_BackupAccessCmd(DISABLE);
+			}
+			if(br) {/*If we haven't yet reached the end of the file*/
+				f_read(&FATFS_logfile, (void*)(&required_sensors),1,&br);/*This is used to shut down the logger if sensors absent*/
+				if(!br)
+					required_sensors=0;//Means this is not to be used
+			}
+			f_close(&FATFS_logfile);	//Close the settings.dat file
+		}
+		// Get Bluetooth name from BT Device
+		Watchdog_Reset();
+		if(!RN42_get_command()) {		//If we were able to get Command mode
+			while(Bytes_In_ISR_Buffer(&Usart1_rx_buff)) { //Empty CMD from buffer
+				Get_From_ISR_Buffer(&Usart1_rx_buff);    //Take from buffer
+			}
+			Usart_Send_Str((char*)"GN\r\n");//Get Name command
+			Watchdog_Reset();
+			{
+				uint8_t counter=0;
+				uint32_t millis=Millis;		//Store this for reference
+				while(Millis<(millis+150)) {	//Times out after 150ms
+					if(Bytes_In_ISR_Buffer(&Usart1_rx_buff)) {//Get serial number and place in buffer
+						SerialNumber[counter]=Get_From_ISR_Buffer(&Usart1_rx_buff);//Take from buffer
+						if(SerialNumber[counter++]=='\n') { //Break out if we get '\r'
+							break;
+						}
+					}
+				}
+				if(counter>2) {
+					SerialNumber[counter-2]=0;    //Remove the return
+				}
+				else {			//Something wrong - no name
+					strcpy(SerialNumber,"NNM");    //Store an error name
+				}
+			}
+			Usart_Send_Str((char*)"---\r");//Return to Data mode
+		}
+		else {
+			strcpy(SerialNumber,"ERR");	//If RN42 module failure, name goes to "ERR"
+			if(!(FATFS_info.fsize))		//If the time.txt file either doesnt exist or is empty, try to configure the RN-42
+				rn42_conf();		//Try to configure the RN-42
+		}
+#ifndef SINGLE_LOGFILE
+		rtc_gettime(&RTC_time);			//Get the RTC time and put a timestamp on the start of the file
+		rprintfInit(__str_print_char);		//Print to the string
+		printf("%02d-%02d-%02dT%02d-%02d-%02d-%s.wav",RTC_time.year,RTC_time.month,RTC_time.mday,RTC_time.hour,RTC_time.min,RTC_time.sec,SerialNumber);//Timestamp name
+		rprintfInit(__usart_send_char);		//Printf over the bluetooth
+#endif
+		Watchdog_Reset();			//Card Init can take a second or two
+		if((f_err_code=f_open(&FATFS_logfile,(const TCHAR *)LOGFILE_NAME, FA_CREATE_ALWAYS | FA_WRITE))) {//Present
+			printf("FatFs drive error %d\r\n",f_err_code);
+			if(f_err_code==FR_DISK_ERR || f_err_code==FR_NOT_READY) {
+				Usart_Send_Str((char*)"No uSD card inserted?\r\n");
+			}
+		}
+		else {					//We have a mounted card
+			Watchdog_Reset();		//Card Init can take a second or two
+			f_err_code=f_lseek(&FATFS_logfile, PRE_SIZE);// Pre-allocate clusters
+			if (f_err_code || f_tell(&FATFS_logfile) != PRE_SIZE) { // Check if the file size has been increased correctly
+				Usart_Send_Str((char*)"Pre-Allocation error\r\n");
+			}
+			else {
+				if((f_err_code=f_lseek(&FATFS_logfile, 0))) { //Seek back to start of file to start writing
+					Usart_Send_Str((char*)"Seek error\r\n");
+				}
+				else {
+					rprintfInit(__str_print_char);    //Printf to the logfile
+				}
+			}
+			if(f_err_code) {
+				f_close(&FATFS_logfile);    //Close the already opened file on error
+			}
+			else {
+				file_opened=1;		//So we know to close the file properly on shutdown
+			}
+		}
+	}
+	if(f_err_code) {				//There was an init error
+		red_flash();
+		shutdown();				//Abort after a single red flash ------------------ABORT 1
+	}
+	Watchdog_Reset();				//Card Init can take a second or two
+	flashCodeEnabled=1;                             //Enable flashcode handler
+	EXTI_ONOFF_EN();				//Enable the off interrupt - allow some time for debouncing
+	rtc_gettime(&RTC_time);				//Get the RTC time and put a timestamp on the start of the file
+	print_string[0]=0x00;				//Set string length to 0
+	write_wave_header(&FATFS_logfile, 1, 5952, 16);//5.952khz sample rate, note that the ADC front end should include some more aggressive low pass
+	Millis=0;					//Reset system uptime, we have 50 days before overflow
+	ADCoutbuff=malloc(8192);			//4096 decimated samples
+	Bufferflag=0;					//Reset this on entry
+	uint16_t bufferindex=0;
+	while(!Bufferflag) {
+		__WFI();				//Await the first part of buffer filling
+	}
+	while (1) {
+		Watchdog_Reset();			//Reset the watchdog each main loop iteration
+		while(!Bufferflag) {
+			__WFI();    //Wait for some PPG data
+		}
+		{
+		uint16_t * inde=NULL;
+		if(Bufferflag&0x01) {
+			Bufferflag&=~0x01;
+			inde=(uint16_t*)ADCoutbuff;
+		}
+		if(Bufferflag&0x02) {
+			Bufferflag&=~0x02;
+			inde=(uint16_t*)&(ADCoutbuff[2048]);//Note that the size is in byte units 
+		}
+		//for(uint16_t n=0;n<ADC_BUFF_SIZE/4;n++)
+		//	write_wave_samples(&FATFS_logfile, 1, 16, &this_stuffer, inde[n]);
+		//}
+		uint8_t dummy;
+		f_write(&FATFS_logfile, (uint8_t*)inde, 4096, (uint8_t*)&dummy);//raw write the ADC to the file as 16bit samples
+		}
+		//Other sensors etc can go here
+		//Button multipress status
+		if(System_state_Global&0x80) {		//A "control" button press
+			system_state|=System_state_Global&~0x80;//Copy to local variable
+			System_state_Global&=~0x80;	//Wipe the flag bit to show this has been processed
+		}
+		system_state=0;				//Reset this
+		//Deal with file size - may need to preallocate some more
+		if(file_opened & (f_size(&FATFS_logfile)-f_tell(&FATFS_logfile)<(PRE_SIZE/2))) {//More than half way through the pre-allocated area
+			DWORD size=f_tell(&FATFS_logfile);
+			f_err_code=f_lseek(&FATFS_logfile, f_size(&FATFS_logfile)+PRE_SIZE);//preallocate another PRE_SIZE
+			f_err_code|=f_lseek(&FATFS_logfile, size);//Seek back to where we were before
+			f_err_code|=f_sync(&FATFS_logfile);//To minimize risk of data loss
+			if(f_err_code)
+				Shutdown_System=NO_CARD_SPACE;//Shutdown to avoid running without recording any data
+		}
+		if(Millis%1000>500) {			//1Hz on/off flashing
+			switch_leds_on();		//Flash the LED(s)
+		}
+		else {
+			switch_leds_off();
+		}
+		if(Shutdown_System) {			//A system shutdown has been requested
+			if(file_opened) {
+				shutdown_filesystem(Shutdown_System, file_opened);
+			}
+			if(Shutdown_System==USB_INSERTED) {
+				NVIC_SystemReset();    //Software reset of the system - USB inserted whilst running
+			}
+			else {
+				if( (Shutdown_System==LOW_BATTERY) || (Shutdown_System==NO_CARD_SPACE) ) {
+					red_flash();    //Used to indicate an error condition before turnoff, other conditions flash an error code
+				}
+				shutdown();		//Puts us into sleep mode
+			}
+		}
+	}
+}
+
+/**
+  * @brief  Writes a char to logfile
+  * @param  Character to write
+  * @retval None
+  */
+void __fat_print_char(char c)
+{
+	f_write(&FATFS_logfile,&c,(UINT)1,&a);
+}
+
+/**
+  * @brief  Writes a char to string - use for better logfile performance
+  * @param  Character to write
+  * @retval None
+  */
+void __str_print_char(char c)
+{
+	uint8_t indx=strlen((const char *)print_string)%255;//Make sure we cant overwrite ram
+	print_string[indx]=c;				//Append string
+	print_string[indx+1]=0x00;			//Null terminate
+	__usart_send_char(c);				//Send to the bluetooth as well
+}
+
+
+
+
+
+/**
+  * @brief Attempt to force a RN42 bluetooth into command mode
+  * @param None
+  * @reval Returns zero for success, nonzero for failure
+  */
+uint8_t RN42_get_command()
+{
+	uint32_t millis_startget=Millis;		//Store entry time
+	uint32_t millis_waitreply;
+	const char Reply[]="CMD\r\n";
+	while(Millis<(millis_startget+1200)) {		//Loop in here until we break out or we get timeout
+		uint8_t read_characters=0;
+		while(Bytes_In_ISR_Buffer(&Usart1_rx_buff)) {//Empty any data from buffer
+			Get_From_ISR_Buffer(&Usart1_rx_buff);//Take from buffer
+		}
+		Usart_Send_Str((char*)"$$$");		//Try to enter Command Mode
+		millis_waitreply=Millis;		//Store the time at which we sent the command
+		while(Millis<(millis_waitreply+370)) {	//Wait for a timeout or the correct reply
+			if(Bytes_In_ISR_Buffer(&Usart1_rx_buff)) {//Get any data from buffer
+				if(Reply[read_characters]==Get_From_ISR_Buffer(&Usart1_rx_buff)) { //Take from buffer and compare
+					read_characters++;
+				}
+				else {
+					read_characters=0;
+				}
+				if(read_characters==(sizeof Reply)-1) {
+					return 0;
+				}
+			}
+			else {
+				__WFI();		//Standby whilst we wait for some data
+			}
+		}
+	}
+	return 1;
+}
+
+

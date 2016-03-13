@@ -1,0 +1,87 @@
+# deb cdrom:[Ubuntu 10.04.1 LTS _Lucid Lynx_ - Release i386 (20100816.1)]/ lucid main restricted
+deb-src http://archive.ubuntu.com/ubuntu lucid main restricted #Added by software-properties
+# See http://help.ubuntu.com/community/UpgradeNotes for how to upgrade to
+# newer versions of the distribution.
+
+deb http://gb.archive.ubuntu.com/ubuntu/ lucid main restricted
+deb-src http://gb.archive.ubuntu.com/ubuntu/ lucid restricted main multiverse universe #Added by software-properties
+
+## Major bug fix updates produced after the final release of the
+## distribution.
+deb http://gb.archive.ubuntu.com/ubuntu/ lucid-updates main restricted
+deb-src http://gb.archive.ubuntu.com/ubuntu/ lucid-updates restricted main multiverse universe #Added by software-properties
+
+## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu
+## team. Also, please note that software in universe WILL NOT receive any
+## review or updates from the Ubuntu security team.
+deb http://gb.archive.ubuntu.com/ubuntu/ lucid universe
+deb http://gb.archive.ubuntu.com/ubuntu/ lucid-updates universe
+
+## N.B. software from this repository is ENTIRELY UNSUPPORTED by the Ubuntu 
+## team, and may not be under a free licence. Please satisfy yourself as to 
+## your rights to use the software. Also, please note that software in 
+## multiverse WILL NOT receive any review or updates from the Ubuntu
+## security team.
+deb http://gb.archive.ubuntu.com/ubuntu/ lucid multiverse
+deb http://gb.archive.ubuntu.com/ubuntu/ lucid-updates multiverse
+
+## Uncomment the following two lines to add software from the 'backports'
+## repository.
+## N.B. software from this repository may not have been tested as
+## extensively as that contained in the main release, although it includes
+## newer versions of some applications which may provide useful features.
+## Also, please note that software in backports WILL NOT receive any review
+## or updates from the Ubuntu security team.
+# deb http://gb.archive.ubuntu.com/ubuntu/ lucid-backports main restricted universe multiverse
+# deb-src http://gb.archive.ubuntu.com/ubuntu/ lucid-backports main restricted universe multiverse
+
+## Uncomment the following two lines to add software from Canonical's
+## 'partner' repository.
+## This software is not part of Ubuntu, but is offered by Canonical and the
+## respective vendors as a service to Ubuntu users.
+deb http://archive.canonical.com/ubuntu lucid partner
+# deb-src http://archive.canonical.com/ubuntu lucid partner
+
+deb http://security.ubuntu.com/ubuntu lucid-security main restricted
+deb-src http://security.ubuntu.com/ubuntu lucid-security restricted main multiverse universe #Added by software-properties
+deb http://security.ubuntu.com/ubuntu lucid-security universe
+deb http://security.ubuntu.com/ubuntu lucid-security multiverse
+deb http://ppa.launchpad.net/mtmiller/octave/ubuntu lucid main
+deb-src http://ppa.launchpad.net/mtmiller/octave/ubuntu lucid main
+deb http://archive.getdeb.net/ubuntu lucid-getdeb apps
+deb https://launchpad.net/~tortoisehg-ppa/+archive/releases lucid main
+# This file makes sure that Opera Browser is kept up-to-date
+# as part of regular system upgrades
+
+deb http://deb.opera.com/opera/ stable non-free #Opera Browser (final releases)
+
+# The line above will make sure you get all final public releases.
+# Uncomment the following line if you want to get alpha and beta
+# releases, too.
+
+# deb http://deb.opera.com/opera-beta/ stable non-free #Opera Browser (beta releases)
+# deb http://ppa.launchpad.net/bitcoin/bitcoi/ubuntu lucid main
+### THIS FILE IS AUTOMATICALLY CONFIGURED ###
+# You may comment out this entry, but any other modifications may be lost.
+deb http://dl.google.com/linux/earth/deb/ stable main
+deb http://ppa.launchpad.net/cinelerra-ppa/ppa/ubuntu lucid main
+deb http://ppa.launchpad.net/ubuntugis/ubuntugis-unstable/ubuntu lucid main
+deb http://linux.dropbox.com/ubuntu lucid main
+deb http://ppa.launchpad.net/bitcoin/bitcoin/ubuntu lucid main
+# This file lists the repositories for Mendeley Desktop.
+#
+# These repositories should work with most recent Debian/Ubuntu-based Linux
+# distributions.
+#
+# If you have any problems with Mendeley's Debian/Ubuntu repositories,
+# you can let us know at http://feedback.mendeley.com
+
+deb http://download.mendeley.com/apt/ stable main
+deb http://ppa.launchpad.net/gezakovacs/nemiver/ubuntu lucid main
+deb http://ppa.launchpad.net/octave/stable/ubuntu lucid main
+deb http://ppa.launchpad.net/freecad-maintainers/freecad-stable/ubuntu lucid main
+# channel for the lucid (10.04) partner channel
+# 
+#:description:This channel contains the partner software for lucid
+deb http://archive.canonical.com/ubuntu lucid partner
+deb file:/var/cache/apt-build/repository apt-build main

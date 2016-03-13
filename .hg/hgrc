@@ -1,0 +1,6 @@
+[paths]
+default = ssh://hg@monte.eee.nottingham.ac.uk/STM32-Logger
+
+
+[web]
+name = PaedCEW
