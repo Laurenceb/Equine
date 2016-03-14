@@ -2,6 +2,7 @@
 // Send and receive data over the USARTs
 
 #include "usart.h"
+#include "main.h"
 
 // globals - buffers for use with Usart1 and 3
 volatile buff_type Usart1_rx_buff,Usart1_tx_buff;
@@ -17,9 +18,9 @@ void Usarts_Init() {
     GPIO_InitTypeDef    GPIO_InitStructure;
     USART_InitTypeDef   USART_InitStructure;
     // Initialise the buffers
-    Init_Buffer(&Usart1_rx_buff, 256, 1);//Initialise the Usart1 Rx and Tx
-    Init_Buffer(&Usart1_tx_buff, 256, 1);    
-    Init_Buffer(&Usart3_rx_buff, SP1ML_BUFFER, 1);//Initialise the Usart3 Rx and Tx
+    Init_Buffer(&Usart1_rx_buff, BUFFER_SIZE, 1);//Initialise the Usart1 Rx and Tx
+    Init_Buffer(&Usart1_tx_buff, BUFFER_SIZE, 1);    
+    Init_Buffer(&Usart3_rx_buff, (BUFFER_SIZE)/2, 1);//Initialise the Usart3 Rx and Tx. Rx is small as we have simple packets
     Init_Buffer(&Usart3_tx_buff, SP1ML_BUFFER, 1);   
 
     // Enable DMA clock
@@ -236,7 +237,8 @@ __attribute__((externally_visible)) void USART3_IRQHandler(void) {
 			uint8_t tx_data;
 			Get_From_Buffer(&tx_data, &Usart3_tx_buff);//Read the data from the tx buffer.
 			USART_SendData(USART3_USART, tx_data);
-			if(!anything_in_buff(&Usart3_tx_buff))	/*No more data to send?*/
+			SP1ML_tx_bytes++;			//A byte was sent
+			if(!anything_in_buff(&Usart3_tx_buff) || (!(SP1ML_tx_bytes%PAYLOAD_BYTES)&&SP1ML_withold))/*No more data, or the transmission is blocked*/
 				USART1->CR1 &=~(1<<7);		//Disable the interrupt here.
 		}
 	}
@@ -264,6 +266,6 @@ void __gps_send_char(char data) {
 
 void __sp1ml_send_char(char data) {
 	Add_To_Buffer(&data, &Usart3_tx_buff);			/*Add to tx buffer*/
-	if(!GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_15))
+	if(!GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_15) && !SP1ML_withold)/*Only enable if we are not blocked*/
 		USART3->CR1 |=(1<<7);				/*Enable the TXE interrupt on USART3*/	
 }

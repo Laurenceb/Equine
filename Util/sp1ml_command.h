@@ -1,6 +1,7 @@
 #pragma once
 #include "stm32f10x.h"
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "usart.h"
 
@@ -39,6 +40,7 @@
 #define NETWORK 0x01
 #define SOURCE "0x01"
 #define PAYLOAD "64"
+#define PAYLOAD_BYTES 64
 
 //This is used for config feedback from a device COBS type packets with a simple network address assignment and text name system, and (device, sequence_number) header
 //HEAD byte is newline (\n)
@@ -51,7 +53,7 @@ enum{INIT=0,PUNG,ASSIGNED,REQUEST};
 #define REQUEST_HEADER "MJ"
 
 //Buffer size used by usart buffers
-#define SP1ML_BUFFER 2048
+#define SP1ML_BUFFER 3072
 
 //Datatype used for the low level request manager state machine. This allows functionality to be shard with bluetooth (RN42)
 typedef struct{
@@ -70,6 +72,8 @@ extern volatile uint8_t SP1ML_state;	//This should be in the state ASSIGNED befo
 extern volatile uint8_t SP1ML_aligned_data_ready;
 extern volatile SP1ML_tx_rx_state_machine_type SP1ML_tx_rx_state;
 extern volatile uint8_t SP1ML_tx_sequence_number;
+extern volatile uint8_t SP1ML_withold;
+extern volatile uint32_t SP1ML_tx_bytes;
 
 //Functions
 void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*generate_packet)(uint8_t*,uint8_t,uint8_t,uint8_t*), buff_type* buff, uint8_t* tx_s, uint8_t* flag);

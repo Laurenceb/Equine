@@ -6,6 +6,8 @@ volatile uint8_t SP1ML_decoder_state;			//Used for the message input format
 
 volatile uint8_t SP1ML_network_address=NETWORK;
 volatile uint8_t SP1ML_tx_sequence_number;
+volatile uint8_t SP1ML_withold;
+volatile uint32_t SP1ML_tx_bytes;			//This is used to chop transmitted data off on packet boundaries 
 
 volatile uint8_t SP1ML_aligned_data_ready;		//Flag use to signal that the 250hz aligned data samples are all ready
 
@@ -47,7 +49,14 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 		case 4:					//Mask of samples to pass back follows
 			datavar=hex_to_byte(datavar);	//The argument is an ascii hex digit (lower case) in the range 0-f
 			stat->sample_counter+=datavar;	//Add in the lower nibble
-			stat->state++;
+			if(stat->sample_counter) {	//Non zero
+				SP1ML_withold=0;	//If we get a non zero request, then allow the SP1ML to transmit (so don't try this command from RN42!)
+				stat->state++;
+			}
+			else {
+				SP1ML_withold=1;	//Withhold data until we get a new request
+				stat->state=0;		//Loop the state back around to zero, we don't expect any nibbles of mask data to be following
+			}
 			break;
 		case 5:					//For the request packet, there are 4 nibbles of mask. This allows up to 16 channels of data to be sent
 			stat->internal_mask=hex_to_byte(datavar)<<12;
@@ -131,6 +140,7 @@ void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) 
 			stat->signal=0;			//Invalidate this
 			if(!SP1ML_assign_addr(stat->argument)) {//Assign the address to the device		
 				Usart3_Send_Str((char*)"ATO\n\r");//Exit command mode
+				SP1ML_tx_bytes=0;	//Reset this here as we will be in a packet aligned state
 				SP1ML_state++;
 			}
 			else
@@ -141,6 +151,7 @@ void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) 
 			if(!SP1ML_assign_addr(NETWORK)) {//A flag can be set from the ISR to force the state machine back to the INIT state (used to reset devices)
 				Usart3_Send_Str((char*)"ATO\n\r");//Exit command mode
 				SP1ML_state=INIT;	//Go back to the init state
+				SP1ML_withold=0;	//Ensure the software tx block is unset
 				stat->signal=0;		//Invalidate this
 			}
 		} 
