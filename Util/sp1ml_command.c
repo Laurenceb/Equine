@@ -205,9 +205,21 @@ uint8_t SP1ML_command(void)
 void SP1ML_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t device_network_id, uint8_t* sequence_number) {
 	const uint8_t header=HEAD;
 	Add_To_Buffer(&header,&Usart3_tx_buff);
-	Add_To_Buffer(&device_network_id,&Usart3_tx_buff);//Packet header consists of device network id byte and sequence number (for scrolling graph smoothness)
-	Add_To_Buffer(sequence_number,&Usart3_tx_buff);//This is similar to HDLC packet format
-	uint8_t skip=1;
+	uint8_t skip=1;					//The reverse COBS applies to the two header bytes as well
+	if(device_network_id!=header) {
+		Add_To_Buffer(&device_network_id,&Usart3_tx_buff);//Packet header is: device network id byte and sequence number (for scrolling graph smoothness)
+		skip++;
+	}
+	else
+		Add_To_Buffer(&skip,&Usart3_tx_buff);
+	if(*sequence_number!=header) {
+		Add_To_Buffer(sequence_number,&Usart3_tx_buff);//This is similar to HDLC packet format
+		skip++;
+	}
+	else {
+		Add_To_Buffer(&skip,&Usart3_tx_buff);
+		skip=1;
+	}
 	for(uint8_t n=0; n<number_bytes; n++) {
 		if(data_payload[n]==HEAD) {
 			__sp1ml_send_char(skip);	//The send_char routine is used here as it will kick start the interrupt driven usart comms if needs be
