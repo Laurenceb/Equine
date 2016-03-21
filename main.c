@@ -379,12 +379,10 @@ int main(void)
 					Get_From_Buffer(&(raw_data_imu[n]),&(IMU_buff[n]));
 			}
 			for(uint8_t n=0; n<8; n++) {	//Samples that will be used
-				Get_From_Buffer(&(raw_data_ecg[n]),&(ECG_buffers[n]));
-				if(abs(raw_data_ecg[n])==(1<<24))//There is an error code
-					raw_data_ecg[n]=(raw_data_ecg[n]>0)?(1<<23)-1:-((1<<23)-1);//Compress the error codes and saturation handling into 24 bits
-				else if(abs(raw_data_ecg[n])>=((1<<23)-1))
-					raw_data_ecg[n]=(raw_data_ecg[n]>0)?raw_data_ecg[n]-1:raw_data_ecg[n]+1;
-			}
+				Get_From_Buffer(&(raw_data_ecg[n]),&(ECG_buffers[n]));//Compress the error codes and saturation handling into 24 bits
+				if((raw_data_ecg[n]>0) && (raw_data_ecg[n]&(1<<24)))//If there is an error code, the 25th bit is set
+					raw_data_ecg[n]=(raw_data_ecg[n]&0x03)?-(1<<23)+(raw_data_ecg[n]&0x03)-1:(1<<23)-1;
+			}//+ive limit == RLD, -ive limit == lead-off, -ive limit+1 == disabled
 			for(uint8_t n=0; n<10; n++)
 				Get_From_Buffer(&(raw_data_imu[n]),&(IMU_buff[n]));
 		}					//Otherwise we write the old data

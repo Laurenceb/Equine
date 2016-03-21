@@ -273,7 +273,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	static uint16_t wct_7N_correction,rld_replace_counter;	//This is used to digitally correct channel 7 so it is referenced to WCT rather than (WCTB+WCTC)/2
 	for(uint8_t n=0;n<8;n++) {		//Loop through the 8 channels
 		uint32_t dat;
-		if(RLD_replaced!=n) {		//This is disabled if the RLD is remapped to the current channel
+		if(RLD_replaced!=n) {		//This is disabled if the RLD is remapped to the current channel TODO check enable mask here
 			for(uint8_t m=0; m<3; m++)
 				databuffer[n][m]=databuffer[n][m+1];//Update the buffers, copy down from the higher array index
 			dat=*((uint32_t*)&(raw_data_[n*3+1]));//One byte offset due to the command byte
@@ -306,8 +306,11 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			}
 		}
 		//Disabled channels, and also channels that are masked as disconnected or used as a replacement RLD are zeroed
-		if(quality_mask&(1<<n))
-			dat=(-(int32_t)(1<<24));
+		if(quality_mask&(1<<n)) {
+			dat=(uint32_t)(1<<24)+1;//Second special value for lead-off
+			if(!(Enable&(1<<n)))
+				dat++;		//A third special value for diabled channels
+		}	
 		if(RLD_replaced==n)
 			dat=(uint32_t)(1<<24);	// The 25th bit is set if the channel has been repurposed for RLD
 		Add_To_Buffer(&dat,&(buffers[n]));// Add the data to the buffer
@@ -539,7 +542,7 @@ void handle_aligned_sensors(void){
 	handle_lsm9ds1();//This will look for data and process if it is found, adding to buffers and requesting a new set of reads
 	for(uint8_t n=0; n<8; n++) {//Filter the ECG data and load into raw globals
 		float out;
-		if(abs(Raw_ECG[n])<(1<<23)) {
+		if(!(Raw_ECG[n]&(1<<24)) || (Raw_ECG[n]&(1<<25))) {//Negative or 25th bit not set
 			out=iir_filter_50(&(ECG_filter_states[n]),(float)(Raw_ECG[n]>>3));//Trim off 3 lowest bits, assume they are noise
 			if(fabs(out)>((1<<15)-2))
 				Filtered_ECG[n]=(out>0)?(1<<15)-2:-((1<<15)-2);
@@ -547,7 +550,7 @@ void handle_aligned_sensors(void){
 				Filtered_ECG[n]=(int16_t)out;
 		}
 		else 
-			Filtered_ECG[n]=(Raw_ECG[n]>0)?(1<<15)-1:-(1<<15);//The lead-off and remap are mapped to the top and bottom of the range
+			Filtered_ECG[n]=(Raw_ECG[n]&0x03)?-((1<<15)-(Raw_ECG[n]&0x03))-1:(1<<15)-1;//Lead-off and remap are mapped to the top and bottom of the range
 	}//be sure appropriate interrupt pre-eption priority due to runtime
 	SP1ML_aligned_data_ready=1;//Indicates that there is new data ready
 	RN42_aligned_data_ready=1;//The same data is also available for the RN42 (code reuse)
