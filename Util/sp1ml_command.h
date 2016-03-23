@@ -39,6 +39,7 @@
 //This is the default source address of the module, if there are multiple modules, this could be changed
 #define NETWORK 0x01
 #define SOURCE "0x01"
+#define DESTINATION "0x00"/*This is the base station (at 0x00)*/
 #define PAYLOAD "64"
 #define PAYLOAD_BYTES 64
 
