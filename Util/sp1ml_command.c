@@ -203,34 +203,40 @@ uint8_t SP1ML_command(void)
   * @retval None
   */
 void SP1ML_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t device_network_id, uint8_t* sequence_number) {
-	const uint8_t header=HEAD;
+	const uint8_t header=HEAD;			//COBS uses zero as the id byte, with xor over everything with the head byte
+	uint8_t tmp;
 	Add_To_Buffer(&header,&Usart3_tx_buff);
 	uint8_t skip=1;					//The reverse COBS applies to the two header bytes as well
-	if(device_network_id!=header) {
-		Add_To_Buffer(&device_network_id,&Usart3_tx_buff);//Packet header is: device network id byte and sequence number (for scrolling graph smoothness)
-		skip++;
-	}
-	else
-		Add_To_Buffer(&skip,&Usart3_tx_buff);
-	if(*sequence_number!=header) {
-		Add_To_Buffer(sequence_number,&Usart3_tx_buff);//This is similar to HDLC packet format
+	tmp=device_network_id^header;			//xor all the payload
+	if(tmp!=header) {
+		Add_To_Buffer(&tmp,&Usart3_tx_buff);	//Packet header is: device network id byte and sequence number (for scrolling graph smoothness)
 		skip++;
 	}
 	else {
-		Add_To_Buffer(&skip,&Usart3_tx_buff);
+		tmp=skip^header;
+		Add_To_Buffer(&tmp,&Usart3_tx_buff);
+	}
+	tmp=(*sequence_number)^header;
+	if(tmp!=header) {
+		Add_To_Buffer(&tmp,&Usart3_tx_buff);	//This is similar to HDLC packet format
+		skip++;
+	}
+	else {
+		tmp=skip^header;
+		Add_To_Buffer(&tmp,&Usart3_tx_buff);
 		skip=1;
 	}
 	for(uint8_t n=0; n<number_bytes; n++) {
 		if(data_payload[n]==HEAD) {
-			__sp1ml_send_char(skip);	//The send_char routine is used here as it will kick start the interrupt driven usart comms if needs be
+			__sp1ml_send_char(skip^header);	//The send_char routine is used here as it will kick start the interrupt driven usart comms if needs be
 			skip=1;
 		}
 		else {
 			skip++;
-			__sp1ml_send_char(data_payload[n]);
+			__sp1ml_send_char(data_payload[n]^header);
 		}
 	}
-	__sp1ml_send_char(skip);			//Work backwards from the end of the packet, skipping skip bytes and replacing with HEAD until packet header
+	__sp1ml_send_char(skip^header);			//Work backwards from the end of the packet, skipping skip bytes and replacing with HEAD until packet header
 	*sequence_number++;				//Incriment this
 }
 
