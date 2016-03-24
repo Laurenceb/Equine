@@ -554,6 +554,7 @@ void handle_aligned_sensors(void){
 	}//be sure appropriate interrupt pre-eption priority due to runtime
 	SP1ML_aligned_data_ready=1;//Indicates that there is new data ready
 	RN42_aligned_data_ready=1;//The same data is also available for the RN42 (code reuse)
+	SP1ML_tx_rx_state.sequence_is_time=1;//This is true so that the sequence number uses number of datasamples received whilst in connected state, not number sent
 	SP1ML_rx_tx_data_processor(&SP1ML_tx_rx_state,&SP1ML_generate_packet,&Usart3_rx_buff,&SP1ML_tx_sequence_number,&SP1ML_aligned_data_ready);
 	SP1ML_rx_tx_data_processor(&RN42_tx_rx_state,&RN42_generate_packet,&Usart1_rx_buff,&RN42_tx_sequence_number,&RN42_aligned_data_ready);
 }			//Note that the I2C_failure variable should be checked inside the main loop and a reset requested if needed

@@ -66,6 +66,7 @@ typedef struct{
 	uint8_t argument;
 	uint16_t main_mask;
 	uint16_t internal_mask;
+	uint8_t sequence_is_time;//This is used to make the sequence number a function of time rather than transmitted bytes. This makes loss recovery easier
 } SP1ML_tx_rx_state_machine_type;
 
 //Globals used for passing data from the sensor read functions

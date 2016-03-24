@@ -78,7 +78,7 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 			stat->signal=stat->internal_type;//This should be REQUEST, a state that is not actually used externally at present
 		}
 	}
-	if(stat->main_mask&&stat->main_counter&&*flag) {//Next handle the data request
+	if(stat->main_mask&&stat->main_counter&&*flag && SP1ML_state==ASSIGNED) {//Next handle the data request, only if we are in correct state and have data to send
 		uint8_t numbits=0;
 		for(uint8_t n=0; n<16; n++) {
 			if(stat->main_mask&(1<<n))
@@ -103,6 +103,8 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 		stat->main_counter--;			//Update these
 		*flag=0;				//Ready for new data to be loaded
 	}
+	else if(*flag && stat->sequence_is_time && SP1ML_state==ASSIGNED)//If device connection unreliable its better for sequence number to count samples to state
+		*tx_s++;				//machine, rather than actual transmitted samples. Set this variable to be true for SP1ML, false for RN42 
 }
 
 /**
@@ -119,12 +121,12 @@ void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) 
 			srand(Millis);			//Rand gets init using the time, which should be semi random due to start up delays
 			seed=1;
 		}
-		if(stat->signal==PUNG) {		//This is set to indicate that the device has received a ping enquiry from the base station
+		if(stat->signal==PUNG && !timing) {	//This is set to indicate that the device has received a ping enquiry from the base station
 			inner_delay=(uint8_t)rand()%255;//Set random timeout
 			stat->signal=0;			//Reset the message
 			timing=1;
 		}
-		else if(!(inner_delay--)&&timing) {	//After the timeout, send the packet. But only enter the timeout if we have a set flag
+		else if(!(--inner_delay)&&timing) {	//After the timeout, send the packet. But only enter the timeout if we have a set flag
 			SP1ML_tx_sequence_number=0;	//Ensure this is reset. A packet with the default address and zero sequence number is processed as a name
 			SP1ML_generate_packet(SerialNumber,strlen(SerialNumber),SP1ML_network_address,&SP1ML_tx_sequence_number);
 			SP1ML_state++;			//With the ping response sent
