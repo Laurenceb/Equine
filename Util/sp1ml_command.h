@@ -2,7 +2,7 @@
 #include "stm32f10x.h"
 #include <stdint.h>
 #include <stdlib.h>
-
+#include "gpio.h"
 #include "usart.h"
 
 //Radio config definitions, this is the max that will fit into EU band allocations --------------------------------
@@ -26,6 +26,11 @@
 //With FEC+ARQ there will be a performance cliff at approx -106dBm with SMPS enabled and 2FSK.
 //SP1ML module uses AM11DG-ST01 antenna, assume horizontal plane at both ends, with the receiver also horizontal on USB stick, gives average 104dB budget
 //This results in (rural model), 630 to 950m range on average, and worst case 230m to 340m in null (worst case ~80dB, perhaps 15% of the time). 
+#if PCB<2
+	#define LED "1"
+#else
+	#define LED "2"
+#endif /*LED is to gnd on version 2 and later pcbs*/ 
 
 //Enable filtering on packets that are received
 #define FILTER_CRC "1"

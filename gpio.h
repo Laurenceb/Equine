@@ -1,5 +1,7 @@
 #include "stm32f10x.h"
 
+//PCB revision
+#define PCB 1
 
 #define RED		GPIO_Pin_5
 #define GREEN		GPIO_Pin_6

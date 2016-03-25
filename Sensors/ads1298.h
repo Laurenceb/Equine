@@ -7,6 +7,7 @@
 #include "filter.h"
 #include "timer.h"
 #include "delay.h"
+#include "gpio.h"
 #include "sp1ml_command.h"
 
 typedef struct{
@@ -35,7 +36,10 @@ extern volatile uint8_t ADS1298_Error_Status;
 #define ADS1298_BUFFER 125
 
 //This can be defined to activate LEDs on the four GPIO outputs. LED signals are: 1) RLD failed, 2) RLD remapped, 3) WCT poor, 4) WCT failed.
-#define ECG_LEDS 
+//#define ECG_LEDS /*Now defined as a function of PCB revision (PCB in gpio.h) */ 
+#if PCB>1
+	#define ECG_LEDS
+#endif
 
 //Register and command definitions
 #define ADS1298_WAKEUP 0x02

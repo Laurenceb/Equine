@@ -267,7 +267,7 @@ uint8_t SP1ML_configure(void) {
 		Usart3_Send_Str((char*)"ATS19="FILTER_CRC"\n\r");
 		Usart3_Send_Str((char*)"ATS20="FILTER_SOURCE"\n\r");
 		Usart3_Send_Str((char*)"ATS21="FILTER_DESTINATION"\n\r");//Setting filter source and destination limits us to 1 to 1 comms with the base station
-		Usart3_Send_Str((char*)"ATS24=1\n\r");//This is for led to VCC. Use 2 to set for led to GND
+		Usart3_Send_Str((char*)"ATS24="LED"\n\r");//This is for led to VCC. Use 2 to set for led to GND
 		Usart3_Send_Str((char*)"ATS28="PAYLOAD"\n\r");
 		Usart3_Send_Str((char*)"AT/C\n\r");//this permanently writes to EEPROM, so dont need to call this function again
 		Usart3_Send_Str((char*)"ATO\n\r");
