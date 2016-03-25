@@ -14,9 +14,9 @@
 //Complies with EU regs (+7dBm), but antenna max performance is -1dB when converting to EIRP
 #define TX_POWER "+8"
 //Gives the best performance
-#define DEVIATION "75000"
+#define DEVIATION "75"
 //Should more than encompass the side lobes
-#define RX_FILTER "330000"
+#define RX_FILTER "330"
 //Enable FEC, halves data rate, gives about 0.5dB gain at 1% PER, considerably more at lower PER. Disable this for time being, gives 150kbps, for 16x16bit, 250hz
 #define FEC "0"
 //This CS mode allows 6dB dynamic, might be beneficial when used with FEC?
