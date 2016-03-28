@@ -36,8 +36,10 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 				if((byte=='0') || (byte=='1'))
 					counter++;
 				else if(byte=='\n' || !br || counter<=8) {
-					if(counter)
+					if(counter && set_struct->enable_mask!=mask) {
 						set_struct->enable_mask=mask;
+						set_struct->updated_flag|=1;
+					}
 					state=0;
 				}
 				break;
@@ -48,8 +50,10 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 					counter++;
 				}
 				else if(byte=='\n' || !br || counter>=2) {
-					if(counter)
+					if(counter && set_struct->gain!=gain) {
 						set_struct->gain=gain;
+						set_struct->updated_flag|=(1<<1);
+					}
 					state=0;	
 				}
 				break;
@@ -63,8 +67,10 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 					counter++;
 				}
 				else if(byte=='\n' || !br || counter>=1) {
-					if(counter)
+					if(counter && set_struct->channel_seven_neg!=c) {
 						set_struct->channel_seven_neg=c;
+						set_struct->updated_flag|=(1<<2);
+					}
 					state=0;
 				}
 				break;

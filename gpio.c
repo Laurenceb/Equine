@@ -61,6 +61,10 @@ void setup_gpio(void)
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;
 	GPIO_Init( GPIOA, &GPIO_InitStructure );
+	//Configure the ADS1298 DRDY pin (B.7) to input pull up, to avoid any noise during device resets
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
+	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
+	GPIO_Init( GPIOB, &GPIO_InitStructure );
 	//Configure anything else here
 }
 

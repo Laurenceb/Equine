@@ -14,6 +14,7 @@ typedef struct{
 uint8_t gain;
 uint8_t enable_mask;
 uint8_t channel_seven_neg;
+uint8_t updated_flag;	//Used for flagging a pending update to the device
 } ADS_config_type;
 
 //Globals used for interfacing
@@ -74,6 +75,7 @@ extern volatile int16_t Filtered_ECG[8];
 //Function prototypes
 uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow);
 void ads1298_start(void);
+uint8_t ads1298_gain(void);
 void ads1298_busy_wait_write(uint8_t tx_bytes, uint8_t register_number, uint8_t *tx_data);
 void ads1298_busy_wait_read(uint8_t rx_bytes, uint8_t register_number, uint8_t *rx_data);
 void ads1298_busy_wait_command(uint8_t command);

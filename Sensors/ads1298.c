@@ -110,7 +110,8 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 		Init_Buffer(&(ECG_buffers[n]), ADS1298_BUFFER, 4);//Initialise the data buffers (there are 8, lead-off is calculated later)
 		header[n+4]|=((~(config->enable_mask)&(0x01<<n))<<(6-n));//Enable the channel if the enable mask bit is set, bit 6 is a powerdown bit
 		uint8_t gain=config->gain;
-		gain=gain==6?0:gain;				//Possible gain arguments are 1,2,3,4,6,8,12
+		gain=(gain==6)?0:gain;				//Possible gain arguments are 1,2,3,4,6(mapped to zero),8(to 5),12(to 6)
+		gain=(gain>6)?6:gain;				//Maximum possible range of the gain
 		header[n+4]|=gain<<4;				//The gain setting starts at the 4th bit
 		if(n==7)
 			Gain=gain;				//Copy over into the global variable for future use
@@ -149,6 +150,20 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
   */
 void ads1298_start(void) {
 	ads1298_busy_wait_command(ADS1298_START);
+}
+
+/**
+  * @brief  This is a convenience function to retrieve the current ADS1298 gain setting
+  * @param  None
+  * @retval Current gain as unsigned character, returns the actual gain, rather than the gain register setting (note that the two are not the same)
+  */
+uint8_t ads1298_gain(void) {
+	if(Gain && Gain<5)
+		return Gain;
+	else if(!Gain)
+		return 6;
+	else
+		return (Gain*4)-12;
 }
 
 /**

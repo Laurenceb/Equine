@@ -148,6 +148,9 @@ int main(void)
 	if(!GET_PWR_STATE &&  !(CoreDebug->DHCSR&0x00000001)) {//Check here to make sure the power button is still pressed, if not, sleep if no debug
 		shutdown();    				//This means a glitch on the supply line, or a power glitch results in sleep
 	}
+	ADS_conf.enable_mask=0xFF;			//Default is everything enabled
+	ADS_conf.channel_seven_neg=0;			//Normally connected to WCT rather than used
+	ADS_conf.gain=4;
 	//Check to see if battery has enough charge to start
 	EXTI_ONOFF_EN();				//Enable the off interrupt - allow some time for debouncing
 	ADC_Configuration();				//At present this is purely here to detect low battery
@@ -156,7 +159,7 @@ int main(void)
 		Delay(25000);
 	} while(fabs(Battery_Voltage-battery_voltage)>0.01 || !battery_voltage);
 	I2C_Config();					//Setup the I2C bus
-	Sensors=detect_sensors(0);			//Search for connected sensors, probes the I2C for the IMU sensor and sets us and tests GPS and ADS1298
+	Sensors=detect_sensors(&ADS_conf);		//Search for connected sensors, probes the I2C for the IMU sensor and sets us and tests GPS and ADS1298
 	if(battery_voltage<BATTERY_STARTUP_LIMIT)	//detect_sensors sets up and self tests all the sensors, should have all 3 sensors present
 		deadly_flashes=1;
 	else if(!(Sensors&(1<<LSM9DS1)))
@@ -190,8 +193,8 @@ int main(void)
 		}
 		// Load settings if file exists
 		if(!f_open(&FATFS_wavfile,"settings.dat",FA_OPEN_EXISTING | FA_READ)) {
-			if(!read_config_file(&FATFS_wavfile, &ADS_conf, &rtc_correction)) {
-				if((rtc_correction<30) && (rtc_correction>-92) && rtc_correction ) {
+			if(!read_config_file(&FATFS_wavfile, &ADS_conf, &rtc_correction)) {//TODO ___, use GPS timestamp together with BBRAM to correct rtc>
+				if((rtc_correction<30) && (rtc_correction>-92) && rtc_correction ) {/*Setting an RTC correction of 0x00 will enable GPS correction*/
 					PWR_BackupAccessCmd(ENABLE);/* Allow access to BKP Domain */
 					uint16_t tweaked_prescale = (0x0001<<15)-2;/* Try to run the RTC slightly too fast so it can be corrected either way */
 					RTC_WaitForSynchro();	/* Wait for RTC registers synchronization */
@@ -210,11 +213,6 @@ int main(void)
 					PWR_BackupAccessCmd(DISABLE);
 				}
 			}
-			else {				//Default is everything enabled
-				ADS_conf.enable_mask=0xFF;
-				ADS_conf.channel_seven_neg=0;//Normally connected to WCT rather than used
-				ADS_conf.gain=4;
-			}
 			f_close(&FATFS_wavfile);	//Close the settings.dat file
 		}
 		else
@@ -224,8 +222,8 @@ int main(void)
 		RN42_get_name(SerialNumber, br);	//Allow the module to be configured if there is no settings file present on the drive
 		rtc_gettime(&RTC_time);			//Get the RTC time and put a timestamp on the start of the file
 		rprintfInit(__str_print_char);		//Print to the string
-		//timestamp name
-		printf("%d-%02d-%02dT%02d-%02d-%02d",RTC_time.year,RTC_time.month,RTC_time.mday,RTC_time.hour,RTC_time.min,RTC_time.sec);
+		//timestamp name, includeds the date and the device Serial Number
+		printf("%d-%02d-%02dT%02d-%02d-%02d-%s",RTC_time.year,RTC_time.month,RTC_time.mday,RTC_time.hour,RTC_time.min,RTC_time.sec,SerialNumber);
 		rprintfInit(__usart_send_char);	//Printf over the bluetooth
 		f_err_code = f_mkdir(print_string); //Try to make a directory where the logfiles will live
 		uint8_t repetition_counter=0;
@@ -330,6 +328,18 @@ int main(void)
 		shutdown();				//Abort after a (further )single red flash
 	}
 	Watchdog_Reset();				//Card Init can take a second or two
+	if(ADS_conf.updated_flag) {			//Reinit the ADS1298, as the settings have been updated
+		ads1298_setup(&ADS_conf, 0);		//Should not matter if we reinit the device?
+		ADS_conf.updated_flag=0;
+	}
+	{
+	uint8_t ads_gain=ads1298_gain();		//The gain value which is being used
+	RN42_tx_sequence_number=ads_gain;		//The initial RN42 sequence number is set as the gain (can do this and used as should be no BT packet loss)
+	uint8_t n=strlen(SerialNumber);
+	for(;n;n--)
+		SerialNumber[n+1]=SerialNumber[n];	//Stick the current gain on the start of the serial number
+	SerialNumber[0]=ads_gain;			//Note that this must be accomodated in any future used of SerialNumber
+	}
 	flashCodeEnabled=1;                             //Enable flashcode handler
 	rtc_gettime(&RTC_time);				//Get the RTC time and put a timestamp on the start of the file
 	print_string[0]=0x00;				//Set string length to 0

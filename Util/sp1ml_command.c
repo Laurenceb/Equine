@@ -112,7 +112,7 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
   * @param Pointer to the name string
   * @reval None
   */
-void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) {//This is a 2nd state machine, called from main loop to control SP1ML functionality
+void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) {//2nd state machine, called from main loop to ctrl SP1ML functionality
 	static uint8_t reply_randomiser_delay;		//This is used to prevent a collision if two devices are being assigned with addresses
 	static uint8_t inner_delay,seed,timing;		//Used for randomising pingback
 	switch(SP1ML_state) {
