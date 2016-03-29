@@ -9,6 +9,7 @@
 #include "watchdog.h"
 #include "Util/rprintf.h"
 #include "Util/delay.h"
+#include "Util/rtc_correct.h"
 #include "usb_lib.h"
 #include "Util/USB/hw_config.h"
 #include "Util/USB/usb_pwr.h"
@@ -187,6 +188,9 @@ int main(void)
 					rprintfInit(__fat_print_char);//printf to the open file
 					printf("RTC set to %d/%d/%d %d:%d:%d\n",RTC_time.mday,RTC_time.month,RTC_time.year,\
 					       RTC_time.hour,RTC_time.min,RTC_time.sec);
+					uint32_t t;
+					while ( ( t = RTC_GetCounter() ) != RTC_GetCounter() ) { ; }//Copied from FatFS, use multiple reads to get corruption free?
+					update_rtc_timestamp(t);//Update the timestamp (in BBRAM) as we reset the RTC
 				}
 			}
 			f_close(&FATFS_wavfile);	//Close the time.txt file
@@ -194,19 +198,8 @@ int main(void)
 		// Load settings if file exists
 		if(!f_open(&FATFS_wavfile,"settings.dat",FA_OPEN_EXISTING | FA_READ)) {
 			if(!read_config_file(&FATFS_wavfile, &ADS_conf, &rtc_correction)) {//TODO ___, use GPS timestamp together with BBRAM to correct rtc>
-				if((rtc_correction<30) && (rtc_correction>-92) && rtc_correction ) {/*Setting an RTC correction of 0x00 will enable GPS correction*/
-					PWR_BackupAccessCmd(ENABLE);/* Allow access to BKP Domain */
-					uint16_t tweaked_prescale = (0x0001<<15)-2;/* Try to run the RTC slightly too fast so it can be corrected either way */
-					RTC_WaitForSynchro();	/* Wait for RTC registers synchronization */
-					if( RTC->PRLL != tweaked_prescale ) {/*Note that there is a 0.5ppm offset here (correction 0==0.5ppm slow)*/
-						RTC_SetPrescaler(tweaked_prescale); /* RTC period = RTCCLK/RTC_PR = (32.768 KHz)/(32767-2+1) */
-						RTC_WaitForLastTask();
-					}
-					BKP_SetRTCCalibrationValue((uint8_t) ((int16_t)31-(21*(int16_t)rtc_correction)/(int16_t)20) );
-                                	BKP_RTCOutputConfig(BKP_RTCOutputSource_None);/* Ensure any output is disabled here */
-					/* Lock access to BKP Domain */
-					PWR_BackupAccessCmd(DISABLE);
-				}
+				if((rtc_correction<30) && (rtc_correction>-92) && rtc_correction ) /*Setting an RTC correction of 0x00 will enable GPS correction*/
+					set_rtc_correction(rtc_correction);
 				else if(((uint8_t)rtc_correction==0x91) ) {/* 0x91 magic flag sets the RTC clock output on */
 					PWR_BackupAccessCmd(ENABLE);/* Allow access to BKP Domain */
 					BKP_RTCOutputConfig(BKP_RTCOutputSource_CalibClock);/* Output a 512Hz reference clock on the TAMPER pin*/
@@ -362,8 +355,8 @@ int main(void)
 		samples[1]++;				//High rate sample arrived
 		Watchdog_Reset();			//Reset the watchdog each main loop iteration
 		Gps_DMA_Process();			//Processes all GPS data
-		if(Gps.packetflag==REQUIRED_DATA) {	//GPS packet arrived
-			uint8_t gps_code=process_gps_data(raw_data_gps,&Gps,system_state);//GPS formatter puts GPS data into it's wav file buffer as int16_t data
+		if(Gps.packetflag==REQUIRED_DATA) {	//GPS packet arrived, run GPS formatter below
+			uint8_t gps_code=process_gps_data(raw_data_gps,&Gps,system_state, rtc_correction);//puts GPS data into it's wav file buffer as int16_t data
 			Gps.packetflag=0;
 			samples[0]++;			//Low rate sample arrived
 			pad_drop=aligndata(samples, 250/5);//250hz versus 5hz
@@ -483,7 +476,7 @@ FRESULT file_preallocation_control(FIL* file) {
   * @param  Pointers to int16_t buffer and the gps structure, and system state variable for adding to the logfile as the second to bottom nibble of status
   * @retval uint8_t Code giving GPS status
   */
-uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system_state_) {//Returns a GPS status code, 0==ok, 1==2d, >=2 no fix
+uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system_state_, int8_t rtc_correct) {//Returns a GPS status code, 0==ok, 1==2d, >=2 no fix
 	static uint8_t gps_state=2;			//Used for finding first lock and storing position
 	static uint8_t rtc_set_from_gps;
 	static float longitude_factor_from_lat=0.01;
@@ -493,7 +486,7 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
 		if(gps_state==2) {			//We obtained a lock. Check to see if the RTC has ever been set since boot
 			if(!rtc_set_from_gps) {
 				rtc_set_from_gps=1;	//RTC can only ever be set once, until the whole device reboots
-				Set_RTC_From_GPS(Gps_->week,Gps_->time);
+				Set_RTC_From_GPS(Gps_->week,Gps_->time, rtc_correct);
 			}
 			gps_state=1;
 			longitude_factor_from_lat=latitude_factor*sinf((float)Gps_->latitude*1.745e-9);//Calculate the mapping factor to convert to meters
@@ -531,8 +524,12 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
   * @param  GPS Week number and millisecond variables from GPS struct, sets RTC to UTC
   * @retval None
   */
-void Set_RTC_From_GPS(uint32_t week, uint32_t milli) {//Note HW time is in seconds of millenium UTC, but existing FatFS converts to DTS
-	my_RTC_SetCounter(((week*604800)+(milli/1000))-630720013);//GPS seconds in a week, gps time at millenium UTC
+void Set_RTC_From_GPS(uint32_t week, uint32_t milli, int8_t rtc_correct) {//Note HW time is in seconds of millenium UTC, but existing FatFS converts to DTS
+	uint32_t timestamp=((week*604800)+(milli/1000))-630720013;//GPS seconds in a week, gps time at millenium UTC
+	if(!rtc_correct) 
+		rtc_correct_with_timestamp(timestamp);	//Correct the RTC trim
+	my_RTC_SetCounter(timestamp);			//Set the RTC correctly
+	update_rtc_timestamp(timestamp);		//Update the timestamp as we reset the RTC
 }
 
 /**

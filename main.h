@@ -60,9 +60,9 @@ enum{LSM9DS1=0,ADS1298,UBLOXGPS};
 void __fat_print_char(char c);
 void __str_print_char(char c);
 uint8_t detect_sensors(ADS_config_type* config);
-uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system_state_);
+uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system_state_, int8_t rtc_correct);
 FRESULT file_preallocation_control(FIL* file);
-void Set_RTC_From_GPS(uint32_t week, uint32_t milli);
+void Set_RTC_From_GPS(uint32_t week, uint32_t milli, int8_t rtc_correct);
 
 //fatfs globals
 extern volatile uint8_t file_opened;
