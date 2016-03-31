@@ -27,5 +27,5 @@ float comb_filter(comb_state_type *f_state, float input) {
 	float f=f_state->z[1];
 	f_state->z[1]=f_state->z[0];
 	f_state->z[0]=input;
-	return (input+(f*7.0/8.0))/2.0;
+	return (input+(f*7.0/8.0))/1.875;
 }
