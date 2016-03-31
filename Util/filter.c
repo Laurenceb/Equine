@@ -17,3 +17,15 @@ float iir_filter_50(filter_state_type *f_state, float input) {
 	f_state->z_two[0]=in;
 	return dataout;
 }
+
+/**
+  * @brief Runs a comb filter over the data, not completely attenuating at the cut frequency
+  * @param Pointer to the filter state, float input data
+  * @reval Float data output
+  */
+float comb_filter(comb_state_type *f_state, float input) {
+	float f=f_state->z[1];
+	f_state->z[1]=f_state->z[0];
+	f_state->z[0]=input;
+	return (input+(f*7.0/8.0))/2.0;
+}

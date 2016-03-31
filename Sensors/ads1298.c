@@ -15,7 +15,7 @@ static volatile uint8_t old_quality_mask,wct[2],old_wct[2];
 static volatile uint8_t lead_off_mask;	//Mask register setting used for enable/disable of the lead-off excitation (this uses the 10M ohm resistors)
 static uint8_t Gain,Enable;		//Gain setting used for the PGA, and mask of used channels, global copies
 static uint16_t ads1298_transaction_queue;//This is used for managing runtime reconfiguration commands, they are prioritised using the queue and run at sample rate
-static filter_state_type ECG_filter_states[8];//Used for bandpass and notch filtering of the telemetry data
+static filter_state_type_c ECG_filter_states[8];//Used for bandpass and notch filtering of the telemetry data
 
 //Shared Globals
 buff_type ECG_buffers[8];		//Only 8 buffers, the lead-off is calculated using demodulation
@@ -558,7 +558,9 @@ void handle_aligned_sensors(void){
 	for(uint8_t n=0; n<8; n++) {//Filter the ECG data and load into raw globals
 		float out;
 		if(!(Raw_ECG[n]&(1<<24)) || (Raw_ECG[n]&(1<<25))) {//Negative or 25th bit not set
-			out=iir_filter_50(&(ECG_filter_states[n]),(float)(Raw_ECG[n]>>3));//Trim off 3 lowest bits, assume they are noise
+			//Weak comb filter, samp[n] - samp[n+2]*7/8 preceeding iir filter, attenuate lead off by factor of 8 to fit into 16bit signed
+			out=comb_filter(&((ECG_filter_states[n]).cmb), (float)(Raw_ECG[n]>>3));
+			out=iir_filter_50(&((ECG_filter_states[n]).iir),out);//Trim off 3 lowest bits, assume they are noise
 			if(fabs(out)>((1<<15)-2))
 				Filtered_ECG[n]=(out>0)?(1<<15)-2:-((1<<15)-2);
 			else
