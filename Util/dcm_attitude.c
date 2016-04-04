@@ -34,3 +34,11 @@ void propogate_gyro(float DCM[3][3], float gyro[3], float delta_t) {
 	DCM[2][0]-=delta_t*gyro[1];
 	DCM[2][1]+=delta_t*gyro[0];
 }
+
+//Convert a rotation matrix to a quaternion
+void DCM_to_quaternion(float quat[4], float DCM[3][3]) {
+	quat[0]=(1/2)*sqrtf(1+DCM[0][0]+DCM[1][1]+DCM[2][2]);//Diagonal
+	quat[1]=(1/(4*quat[0]))*(DCM[2][1]-DCM[1][2]);
+	quat[2]=(1/(4*quat[0]))*(DCM[0][2]-DCM[2][0]);
+	quat[3]=(1/(4*quat[0]))*(DCM[1][0]-DCM[0][1]);
+}
