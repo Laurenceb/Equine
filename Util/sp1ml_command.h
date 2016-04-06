@@ -52,8 +52,8 @@
 //HEAD byte is newline (\n)
 #define HEAD 0x0A
 
-//Manager state machine and request status states -------------
-enum{INIT=0,PUNG,ASSIGNED,REQUEST};
+//Manager state machine and two types of request status states -------------
+enum{INIT=0,PUNG,ASSIGNED,REQUEST,REQUEST_TWO};
 
 //Data request structure, this is the data from the host
 #define REQUEST_HEADER "MJ"

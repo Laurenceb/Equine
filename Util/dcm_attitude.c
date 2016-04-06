@@ -4,13 +4,13 @@
 float PI_glob[3][2];
 float I_limits[3];
 
-float DCM_glob[3][3]={1,0,0, 0,1,0, 0,0,1};//Initialised as world ==  body
+float DCM_glob[3][3]={{1,0,0}, {0,1,0}, {0,0,1}};//Initialised as world ==  body
 
-//Main filter code, runs with corrected accel and magno (gain and offset). Gyro should also be scaled to radian per second units
+//Main filter code, runs with corrected accel and magno (gain and offset). Gyro should also be scaled to radian per second units, others can be unscaled
 void main_filter(float DCM[3][3], float magno[3], float accel[3], float euler_out[3], float gyro[3], float d_t) {
 	static float I[3];//Integral offset
 	//First set is to run the correction filter
-	float corr[3],correstions[3];
+	float corr[3],corrections[3];
 	vector_by_matrix(corr, magno, DCM);//DCM is body to world
 	corrections[2]=magno_correction(corr);
 	vector_by_matrix(corr, accel, DCM);
@@ -43,14 +43,14 @@ void run_3_pi(float out[3], float I[3], float PI[3][2], float I_limit[3], float 
 	for(uint8_t n=0; n<3; n++) {
 		I[n]+=d_t*error[n];
 		if(fabs(I[n])>I_limit[n])//enforce range limit on I
-			I[n]=I_limit[n]*sign(I[n]);
+			I[n]=I[n]>0?I_limit[n]:-I_limit[n];
 		out[n]=PI[n][0]*error[n]+PI[n][1]*I[n];
 	}
 }
 
 //Cross product the input accel, magnitude corrects the input pointer. Output is pitch and roll correction in radians
 void accel_correction(float out[2], float accel[3]) {
-	const reference[3]={0,0,-1};//NED space
+	const float reference[3]={0,0,-1};//NED space
 	float vect[3],vect_[3];//Temp usage
 	normalize_vector(vect, accel);//vect is the output
 	cross_product(vect_,vect,reference);
@@ -60,7 +60,7 @@ void accel_correction(float out[2], float accel[3]) {
 
 //Cross product the input magno, magnitude corrects the input pointer. Output is yaw correction in radians
 float magno_correction(float magno[3]) {
-	const reference[3]={1,0,0};//NED space
+	const float reference[3]={1,0,0};//NED space
 	float vect[3],vect_[3];//Temp usage
 	normalize_vector(vect, magno);//vect is the output
 	vect[2]=0;	//The z axis of the corrected magno is zeroed
@@ -70,9 +70,9 @@ float magno_correction(float magno[3]) {
 
 //Cross product of two input vectors, used for comparing accel to gravity
 void cross_product(float out[3], float in_one[3], float in_two[3]) {
-	out[0]=in_out[1]*in_two[2]-in_out[2]*in_two[1];
-	out[1]=in_out[0]*in_two[2]-in_out[2]*in_two[0];
-	out[2]=in_out[0]*in_two[1]-in_out[1]*in_two[0];
+	out[0]=in_one[1]*in_two[2]-in_one[2]*in_two[1];
+	out[1]=in_one[0]*in_two[2]-in_one[2]*in_two[0];
+	out[2]=in_one[0]*in_two[1]-in_one[1]*in_two[0];
 }
 
 //Normalizes a three vector, returns its original length as a float
@@ -114,12 +114,11 @@ void normalize_DCM(float DCM[3][3]) {
 
 //Update the DCM using the current gyro data
 void propogate_gyro(float DCM[3][3], float gyro[3], float delta_t) {
-	DCM[0][1]-=delta_t*gyro[2];
-	DCM[0][2]+=delta_t*gyro[1];
-	DCM[1][0]+=delta_t*gyro[2];
-	DCM[1][2]-=delta_t*gyro[0];
-	DCM[2][0]-=delta_t*gyro[1];
-	DCM[2][1]+=delta_t*gyro[0];
+	for(uint8_t n=0; n<3; n++) {//Go through each row and multiply
+		DCM[n][0]+=delta_t*(gyro[2]*DCM[n][1]-gyro[1]*DCM[n][2]);
+		DCM[n][1]+=delta_t*(gyro[0]*DCM[n][2]-gyro[2]*DCM[n][0]);
+		DCM[n][2]+=delta_t*(gyro[1]*DCM[n][0]-gyro[0]*DCM[n][1]);
+	}
 }
 
 //Convert a rotation matrix to a quaternion

@@ -39,7 +39,7 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 				stat->main_counter=0;	//This will stop any more data being sent if we have a non request commend during data sample transmission
 				stat->signal=stat->internal_type;//This is a global flag indicating that we can act upon the received data
 			}
-			else if(stat->internal_type==REQUEST) {//Request command is the other type, followed by argument with number of sample sets, then 2 byte mask
+			else if(stat->internal_type>=REQUEST) {//Request command is the other type, followed by argument with number of sample sets, then 2 byte mask
 				stat->state++;
 				stat->sample_counter=stat->argument<<4;//This will count down and be handled from within this function
 			}
@@ -90,12 +90,18 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 			if(stat->main_mask&(1<<n)) {	//The mask bit is set
 				if(n<8)			//First 8 channels are the ECG, we use the immediate samples, which are added into globals by respective funcs
 					*(uint16_t*)&(data[numbits])=Filtered_ECG[n];//Last 8 channels are the IMU, excluding the z compass data
-				else if(n<11)
-					*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Gyro_Buffer.x))[n-8];//Directly use the sample buffers from the I2C driver 
-				else if(n<14)
-					*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Acc_Buffer[n-11]));
-				else
-					*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Mag_Buffer[n-14]));
+				else if(stat->signal==REQUEST_TWO){
+					if(n<11)
+						*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Gyro_Buffer.x))[n-8];//Directly use sample buffers from I2C driver 
+					else if(n<14)
+						*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Acc_Buffer[n-11]));
+					else
+						*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Mag_Buffer[n-14]));
+				}
+				else {			//The complimentary filtered data, followed by alternating heading (0 to -360) or battery v (mv), vel, gps pos
+					//TODO (use dcm_attitude.c)
+
+				}
 				numbits+=2;		//Jump 2 bytes
 			}
 		}

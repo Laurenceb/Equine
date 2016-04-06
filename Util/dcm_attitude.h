@@ -2,8 +2,11 @@
 
 #include "stm32f10x.h"
 
+extern float DCM_glob[3][3];
+
 void main_filter(float DCM[3][3], float magno[3], float accel[3], float euler_out[3], float gyro[3], float d_t);
 void init_controller(float PI_limit[3]);
+void correct_gyro(float correction[3], float gyro[3], float out[3]);
 void run_3_pi(float out[3], float I[3], float PI[3][2], float I_limit[3], float error[3], float d_t);
 void accel_correction(float out[2], float accel[3]);
 float magno_correction(float magno[3]);

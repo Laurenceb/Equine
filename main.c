@@ -358,6 +358,7 @@ int main(void)
 		if(Gps.packetflag==REQUIRED_DATA) {	//GPS packet arrived, run GPS formatter below
 			uint8_t gps_code=process_gps_data(raw_data_gps,&Gps,system_state, rtc_correction);//puts GPS data into it's wav file buffer as int16_t data
 			Gps.packetflag=0;
+			//TODO load both GPS data and a copy of the battery voltage into a global used by the telemetry packer here (consumed by sp1ml_command.c)
 			samples[0]++;			//Low rate sample arrived
 			pad_drop=aligndata(samples, 250/5);//250hz versus 5hz
 			write_wave_samples(&FATFS_wavfile_gps, 6, 16, &(this_stuffer[2]), raw_data_gps, 2);//Already converted GPS into correct format
