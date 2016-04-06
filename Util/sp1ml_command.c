@@ -1,5 +1,7 @@
 #include "sp1ml_command.h"
 #include "main.h"
+#include "lsm9ds1.h"
+#include "dcm_attitude.h"
 
 volatile uint8_t SP1ML_state;				//Used externally to check for correct operation
 volatile uint8_t SP1ML_decoder_state;			//Used for the message input format
@@ -99,29 +101,44 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 						*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Mag_Buffer[n-14]));
 				}
 				else {			//The complimentary filtered data, followed by alternating heading (0 to -360) or battery v (mv), vel, gps pos
-					if(n==8 && (stat->main_mask&0x700)) {//If any Euler angles are requested, run the whole filter
-						float acc[3], mag[3], gyro[3], euler[3];//These are used to pass the data to the filter
+					float magnitude=-1;
+					float euler[3];
+					if(!(((stat->main_mask&0x700)>>8)&((1<<(n-8))-1)) && (stat->main_mask&0x700)) {//If Euler angles are requested, run the filter
+						float acc[3], mag[3], gyro[3];//These are used to pass the data to the filter
 						gyro[0]=(float)(*(int16_t*)&(LSM9DS1_Gyro_Buffer.x));
 						gyro[1]=(float)(*(int16_t*)&(LSM9DS1_Gyro_Buffer.y));
-						gyro[2]=-(float)(*(int16_t*)&(LSM9DS1_Gyro_Buffer.z))
+						gyro[2]=-(float)(*(int16_t*)&(LSM9DS1_Gyro_Buffer.z));
 						for(uint8_t m=0; m<3; m++) {
 							acc[m]=(float)(*(int16_t*)&(LSM9DS1_Acc_Buffer[m]));
 							mag[m]=(float)(*(int16_t*)&(LSM9DS1_Mag_Buffer[m]));
 							gyro[n]*=GYRO_TO_RADIANS;//Convert gyro data to radian units
-						};
-						acc[2]=-acc[2];//Swap z axes
+						}
+						acc[2]=-acc[2];//Swap sign of z axes
 						mag[2]=-mag[2];
 						{float g=mag[0];mag[0]=mag[1];mag[1]=g;}//Fix magno handedness (everything is now in NED space)
-						main_filter( DCM_glob, mag, acc, euler, gyro, (float)(1.0/DATA_RATE));//Run filter, output is passed to euler	
+						magnitude=main_filter( DCM_glob, mag, acc, euler, gyro, (float)(1.0/250.0));//Run filter, pass output to euler
 					}
 					if(n<11) {//The Euler angles are sent
-						int16_t ang=euler[n-8]*180/M_PI;//Scale to angle in degrees
-						*(uint16_t*)&(data[numbits])=*(uint16_t*)&ang;
+						int16_t ang=(euler[n-8]*180.0/M_PI);//Scale to angle in degrees
+						*(uint16_t*)&(data[numbits])=*(uint16_t*)&ang;//These are the first three arguments
 					}
-					//Now send the data TODO get GPS data via locked struct passed from the main loop
+					if(n==11) {//The fourth extra argument is the acceleration offset in milliG
+						if(magnitude<0) {
+							float acc[3];
+							for(uint8_t m=0; m<3; m++)
+								acc[m]=(float)(*(int16_t*)&(LSM9DS1_Acc_Buffer[m]));;
+							magnitude=sqrtf(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2]);//mG acc offset from 1G (range is -1000 to +15000)
+						}
+						int16_t magn=(int16_t)((magnitude-1.0)*1e3);
+						*(uint16_t*)&(data[numbits])=*(uint16_t*)&magn;//Load magnitude into the buffer
+					}
+					if(n>11 && GPS_telem.flag) //Load GPS data if it is ready (heading, velocity, then positions)
+						*(uint16_t*)&(data[numbits])=((uint16_t*)&GPS_telem)[n-12];//use pointers to directly load
 				}
 				numbits+=2;		//Jump 2 bytes
 			}
+			if(n==15)
+				GPS_telem.flag=0;	//At the end of the packetisation, wipe the data ready flag
 		}
 		(*generate_packet)(data, numbits, SP1ML_network_address, tx_s);//Send a data packet, the SP1ML network address is reused for the bluetooth
 		stat->main_counter--;			//Update these

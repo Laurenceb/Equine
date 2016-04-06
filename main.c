@@ -41,13 +41,14 @@ volatile uint16_t* ADCoutbuff;
 char SerialNumber[20];
 uint32_t flashCode=0;
 uint8_t flashCodeEnabled=0;
-int8_t rtc_correction=31;			//Too large to be used	
+int8_t rtc_correction=31;				//Too large to be used	
 //FatFs filesystem globals go here
 FRESULT f_err_code;
 static FATFS FATFS_Obj;
 FIL FATFS_wavfile,FATFS_wavfile_gps,FATFS_wavfile_imu;
 FILINFO FATFS_info;
 //volatile int bar[3] __attribute__ ((section (".noinit"))) ;//= 0xaa
+volatile GPS_telem_type GPS_telem;			//Used to pass processed GPS telemetry to the telemetry parser
 
 int main(void)
 {
@@ -479,6 +480,7 @@ FRESULT file_preallocation_control(FIL* file) {
   */
 uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system_state_, int8_t rtc_correct) {//Returns a GPS status code, 0==ok, 1==2d, >=2 no fix
 	static uint8_t gps_state=2;			//Used for finding first lock and storing position
+	static uint8_t tel_state;			//Used to control the telemetry - loads battery voltage into every third heading
 	static uint8_t rtc_set_from_gps;
 	static float longitude_factor_from_lat=0.01;
 	const float latitude_factor=0.01112;		//Convert from the degrees*10^7 units to meter units (at sea level)
@@ -508,6 +510,18 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
 		data_gps[3]=(int16_t)(Gps_->mslaltitude/10);//Altitude is in cm
 		data_gps[4]=Gps_->vnorth;		//This happens whenever there is a fix
 		data_gps[5]=Gps_->veast;
+		if(!GPS_telem.flag) {			//Only do this if the global has been unlocked
+			if(!tel_state--) {			//Pack the telemetry into the telemetry struct, heading is the battery voltage on every third packet
+				GPS_telem.heading=(int16_t)(Battery_Voltage*-1000.0);//A negative value in millivolts
+				tel_state=3;
+			}
+			else
+				GPS_telem.heading=(int16_t)(180.0+(180.0/M_PI)*atan2(Gps_->vnorth,Gps_->veast));//Heading range 0 to 360 degrees, clockwise from North
+			GPS_telem.velocity=sqrtf(Gps_->vnorth*Gps_->vnorth+Gps_->veast*Gps_->veast);
+			GPS_telem.n_pos=data_gps[0];//Positions in meters (these will be loaded with lat and long with first two packets after the first GPS fix)
+			GPS_telem.e_pos=data_gps[1];
+			GPS_telem.flag=1;//Flag as new data arrived
+		}
 	}
 	else {
 		if(!gps_state || (gps_state==1))

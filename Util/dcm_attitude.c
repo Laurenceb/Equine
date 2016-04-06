@@ -1,4 +1,5 @@
 #include <math.h>
+#include <string.h>
 #include "dcm_attitude.h"
 
 float PI_glob[3][2];
@@ -10,20 +11,24 @@ float DCM_glob[3][3]={{1,0,0}, {0,1,0}, {0,0,1}};//Initialised as world ==  body
 //z axes need reversing on all three sensors, also swap x and y on the magno 
 
 //Main filter code, runs with corrected accel and magno (gain and offset). Gyro should also be scaled to radian per second units, others can be unscaled
-void main_filter(float DCM[3][3], float magno[3], float accel[3], float euler_out[3], float gyro[3], float d_t) {
+//Returns the magnitude of the acceleration vector
+float main_filter(float DCM[3][3], float magno[3], float accel[3], float euler_out[3], float gyro[3], float d_t) {
 	static float I[3];//Integral offset
+	float magnitude;
 	//First set is to run the correction filter
 	float corr[3],corrections[3];
 	vector_by_matrix(corr, magno, DCM);//DCM is body to world
 	corrections[2]=magno_correction(corr);
 	vector_by_matrix(corr, accel, DCM);
-	accel_correction(corrections, corr);//The corrections three vector is now a set of roll, pitch, and yaw corrections
-	run_3_pi(corr, I, PI_glob, I_limits, corrections, d_t);//The PI filtering on the gyros
+	magnitude=accel_correction(corrections, corr);//The corrections three vector is now a set of roll, pitch, and yaw corrections
+	vector_by_matrix_transpose(corr, corrections, DCM);//Move correction back to the body frame using the transpose
+	run_3_pi(corrections, I, PI_glob, I_limits, corr, d_t);//The PI filtering on the gyros takes place in the sensor body frame
 	correct_gyro(corrections, gyro, gyro);//Correct the gyro in place
 	//Now propogate
 	propogate_gyro(DCM, gyro, d_t);
 	normalize_DCM(DCM);
 	DCM_to_euler(euler_out, DCM);
+	return magnitude;
 }
 
 //Used to init the limits on I and PI values, assumes they are all the same
@@ -52,13 +57,14 @@ void run_3_pi(float out[3], float I[3], float PI[3][2], float I_limit[3], float 
 }
 
 //Cross product the input accel, magnitude corrects the input pointer. Output is pitch and roll correction in radians
-void accel_correction(float out[2], float accel[3]) {
+float accel_correction(float out[2], float accel[3]) {
 	const float reference[3]={0,0,-1};//NED space
-	float vect[3],vect_[3];//Temp usage
-	normalize_vector(vect, accel);//vect is the output
+	float vect[3],vect_[3],magnitude;//Temp usage
+	magnitude=normalize_vector(vect, accel);//vect is the output
 	cross_product(vect_,vect,reference);
 	out[0]=vect_[0];
 	out[1]=vect_[1];//The x,y components of the cross product, for small angles this is the rotation in radians
+	return magnitude;
 }
 
 //Cross product the input magno, magnitude corrects the input pointer. Output is yaw correction in radians
@@ -92,6 +98,12 @@ void vector_by_matrix(float out[3], float in[3], float matrix[3][3]) {
 		out[n]=matrix[n][0]*in[0]+matrix[n][1]*in[1]+matrix[n][2]*in[2];
 }
 
+//Multiples a 3 vector by the transpose of a 3x3 matrix (used for reverse rotation operations)
+void vector_by_matrix_transpose(float out[3], float in[3], float matrix[3][3]) {
+	for(uint8_t n=0; n<3; n++)
+		out[n]=matrix[0][n]*in[0]+matrix[1][n]*in[1]+matrix[2][n]*in[2];//Reverse row and column indices
+}
+
 //Normalizes the DCM, passed pointer to 3x3 DCM matrix of floats
 void normalize_DCM(float DCM[3][3]) {
 	float error=DCM[0][0]*DCM[1][0]+DCM[0][1]*DCM[1][1]+DCM[0][2]*DCM[1][2];//dot product of the first two rows
@@ -107,7 +119,7 @@ void normalize_DCM(float DCM[3][3]) {
 	DCM[2][1]=DCM[0][0]*DCM[1][2]-DCM[0][2]*DCM[1][0];
 	DCM[2][2]=DCM[0][0]*DCM[1][1]-DCM[0][1]*DCM[1][0];
 	for(uint8_t n=0; n<3; n++) {
-		float error=DCM[n][0]*DCM[n][0]+DCM[n][1]*DCM[n][1]+DCM[n][2]*DCM[n][2];//Dot product correct each row (dot product of itself)
+		error=DCM[n][0]*DCM[n][0]+DCM[n][1]*DCM[n][1]+DCM[n][2]*DCM[n][2];//Dot product correct each row (dot product of itself)
 		error=(3-error)/2;
 		DCM[n][0]*=error;
 		DCM[n][1]*=error;

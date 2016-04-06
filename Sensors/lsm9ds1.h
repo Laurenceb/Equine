@@ -36,6 +36,9 @@ extern volatile buff_type IMU_buff[10];//These are used for data output
 
 extern volatile uint8_t I2C_failure;//counter
 
+//For converting Gyro data into radians per second
+#define GYRO_TO_RADIANS 0.001222
+
 //+-8G,+-2000dps,238hz update with INT2 active low on new data 
 #define A_G_ONE {0x01,0x68,0x9B,0x0F,0x00,0x00}
 //This gets sent to the second register address

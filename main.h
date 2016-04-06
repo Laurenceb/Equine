@@ -55,6 +55,14 @@ enum{BUTTON_TURNOFF=1,USB_INSERTED,NO_SENSOR,LOW_BATTERY,OVER_HEATED_SENSOR,PRES
 //Sensors
 enum{LSM9DS1=0,ADS1298,UBLOXGPS};
 
+//GPS telemetry struct
+typedef struct {
+	int16_t heading;	//In degrees, also 
+	int16_t velocity;	//Velocity in kilometers per hour
+	int16_t n_pos;		//North and East positions
+	int16_t e_pos;		//In meters
+	uint8_t flag;		//Used for locking and syncronisation
+} GPS_telem_type;
 
 //function prototypes
 void __fat_print_char(char c);
@@ -63,6 +71,9 @@ uint8_t detect_sensors(ADS_config_type* config);
 uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system_state_, int8_t rtc_correct);
 FRESULT file_preallocation_control(FIL* file);
 void Set_RTC_From_GPS(uint32_t week, uint32_t milli, int8_t rtc_correct);
+
+//GPS telemetry data
+extern volatile GPS_telem_type GPS_telem;
 
 //fatfs globals
 extern volatile uint8_t file_opened;
