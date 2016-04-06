@@ -1,16 +1,18 @@
 #include "load_setting.h"
-
+#include "lsm9ds1.h"
 
 /**
-  * @brief Reads through an ascii format setting file and sets the ECG config. Format: \n sep, "M01010101" mask, "G8" gain, "C1" ch7N reconf on/off, "Rff" hex RTC
+  * @brief Reads through an ascii format setting file and sets the ECG config. Format: \n sep, "M01010101" mask, "G8" gain, "C1" ch7N reconf on/off, "Rff" hex RTC,
+           O<x>,<y>,<z> magnetometer offset, e.g. O20,-100,34
   * @param Pointer to the config file, pointer to the config struct
   * @reval Byte value, zero all ok, non zero for error due to malformed file
   */
 uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {//Note that a special value of 0x91 (or "R91") as the RTC will set reference out on TP
-	uint8_t counter,mask=0,gain=0,c=0,state=0,br,byte;
+	uint8_t counter,mask=0,c=0,state=0,br,byte,axis_counter=0,axis_sign=0;
+	uint16_t gain=0;
 	do {
 		f_read(file, (void*)(&byte),1,&br);//Read a character from the file
-		if(br || (state&&counter)) {
+		if(br || (state&&counter)) {//Run one more time after getting EOF, so long as we have read something on the current line
 			switch(state) {
 			case 0:
 				counter=0;
@@ -28,6 +30,11 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 					state=4;
 					gain=0;//reuse this variable
 					break;
+				case 'O':
+					state=5;
+					gain=0;
+					axis_counter=0;//First axis
+					axis_sign=0;//Positive
 				}
 				break;
 			case 1:	//The start of the mask
@@ -91,6 +98,27 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 				if(counter==1)
 					gain<<=4;//shift the first nibble up
 				break;
+			case 5: //The axis correction values
+				if(counter && (byte==',' || byte=='\n' || !br) && axis_counter<3)//Load the read axis correction
+					LSM9DS1_Mag_Offset[axis_counter]=axis_sign?-gain:gain;
+				if(byte=='\n' || !br) {
+					state=0;
+					break;
+				}
+				counter++;
+				if(byte==',') {
+					axis_counter++;
+					axis_sign=0;
+					break;
+				}
+				if(byte=='-') {
+					axis_sign=1;
+					break;
+				}
+				if((byte>=0x30) && (byte<=0x39)) {
+					gain*=10;//Move up the previous value
+					gain+=(byte-0x30);
+				}
 			}
 		}
 		else	//end of file

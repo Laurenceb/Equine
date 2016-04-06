@@ -10,6 +10,7 @@
 #include "Util/rprintf.h"
 #include "Util/delay.h"
 #include "Util/rtc_correct.h"
+#include "Util/dcm_attitude.h"
 #include "usb_lib.h"
 #include "Util/USB/hw_config.h"
 #include "Util/USB/usb_pwr.h"
@@ -334,6 +335,8 @@ int main(void)
 		SerialNumber[n+1]=SerialNumber[n];	//Stick the current gain on the start of the serial number
 	SerialNumber[0]=ads_gain;			//Note that this must be accomodated in any future used of SerialNumber
 	}
+	const float dcm_pi_init[3] = {DCM_P,DCM_I,DCM_LI};
+	init_controller(dcm_pi_init);			//This is used to initialise the PI controller for the DCM attitude finder (TODO test, think +ive P)
 	flashCodeEnabled=1;                             //Enable flashcode handler
 	rtc_gettime(&RTC_time);				//Get the RTC time and put a timestamp on the start of the file
 	print_string[0]=0x00;				//Set string length to 0

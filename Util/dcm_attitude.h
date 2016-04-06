@@ -4,6 +4,11 @@
 
 extern float DCM_glob[3][3];
 
+//PI constants for the DCM
+#define DCM_P 0.5
+#define DCM_I 0.05
+#define DCM_LI 0.25
+
 float main_filter(float DCM[3][3], float magno[3], float accel[3], float euler_out[3], float gyro[3], float d_t);
 void init_controller(float PI_limit[3]);
 void correct_gyro(float correction[3], float gyro[3], float out[3]);

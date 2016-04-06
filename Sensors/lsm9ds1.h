@@ -32,6 +32,7 @@ typedef struct{
 extern volatile gyro_data_type LSM9DS1_Gyro_Buffer;
 extern volatile uint16_t LSM9DS1_Acc_Buffer[3];
 extern volatile uint16_t LSM9DS1_Mag_Buffer[3];
+extern volatile int16_t LSM9DS1_Mag_Offset[3];
 extern volatile buff_type IMU_buff[10];//These are used for data output
 
 extern volatile uint8_t I2C_failure;//counter

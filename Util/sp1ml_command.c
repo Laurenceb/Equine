@@ -110,7 +110,7 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 						gyro[2]=-(float)(*(int16_t*)&(LSM9DS1_Gyro_Buffer.z));
 						for(uint8_t m=0; m<3; m++) {
 							acc[m]=(float)(*(int16_t*)&(LSM9DS1_Acc_Buffer[m]));
-							mag[m]=(float)(*(int16_t*)&(LSM9DS1_Mag_Buffer[m]));
+							mag[m]=(float)(*(int16_t*)&(LSM9DS1_Mag_Buffer[m])-LSM9DS1_Mag_Offset[m]);//Take off the magno offset
 							gyro[n]*=GYRO_TO_RADIANS;//Convert gyro data to radian units
 						}
 						acc[2]=-acc[2];//Swap sign of z axes

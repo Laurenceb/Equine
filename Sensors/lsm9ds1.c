@@ -5,6 +5,7 @@
 volatile gyro_data_type LSM9DS1_Gyro_Buffer;
 volatile uint16_t LSM9DS1_Acc_Buffer[3];
 volatile uint16_t LSM9DS1_Mag_Buffer[3];
+volatile int16_t LSM9DS1_Mag_Offset[3];//This is used for simple offset based (i.e. "hard iron") magnetometer correction. Should be good enough for <2 degree error
 volatile buff_type IMU_buff[10];
 
 //Failure notification counter
