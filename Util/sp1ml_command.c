@@ -99,8 +99,26 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 						*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Mag_Buffer[n-14]));
 				}
 				else {			//The complimentary filtered data, followed by alternating heading (0 to -360) or battery v (mv), vel, gps pos
-					//TODO (use dcm_attitude.c)
-
+					if(n==8 && (stat->main_mask&0x700)) {//If any Euler angles are requested, run the whole filter
+						float acc[3], mag[3], gyro[3], euler[3];//These are used to pass the data to the filter
+						gyro[0]=(float)(*(int16_t*)&(LSM9DS1_Gyro_Buffer.x));
+						gyro[1]=(float)(*(int16_t*)&(LSM9DS1_Gyro_Buffer.y));
+						gyro[2]=-(float)(*(int16_t*)&(LSM9DS1_Gyro_Buffer.z))
+						for(uint8_t m=0; m<3; m++) {
+							acc[m]=(float)(*(int16_t*)&(LSM9DS1_Acc_Buffer[m]));
+							mag[m]=(float)(*(int16_t*)&(LSM9DS1_Mag_Buffer[m]));
+							gyro[n]*=GYRO_TO_RADIANS;//Convert gyro data to radian units
+						};
+						acc[2]=-acc[2];//Swap z axes
+						mag[2]=-mag[2];
+						{float g=mag[0];mag[0]=mag[1];mag[1]=g;}//Fix magno handedness (everything is now in NED space)
+						main_filter( DCM_glob, mag, acc, euler, gyro, (float)(1.0/DATA_RATE));//Run filter, output is passed to euler	
+					}
+					if(n<11) {//The Euler angles are sent
+						int16_t ang=euler[n-8]*180/M_PI;//Scale to angle in degrees
+						*(uint16_t*)&(data[numbits])=*(uint16_t*)&ang;
+					}
+					//Now send the data TODO get GPS data via locked struct passed from the main loop
 				}
 				numbits+=2;		//Jump 2 bytes
 			}

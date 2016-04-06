@@ -6,6 +6,9 @@ float I_limits[3];
 
 float DCM_glob[3][3]={{1,0,0}, {0,1,0}, {0,0,1}};//Initialised as world ==  body
 
+//TODO check it!
+//z axes need reversing on all three sensors, also swap x and y on the magno 
+
 //Main filter code, runs with corrected accel and magno (gain and offset). Gyro should also be scaled to radian per second units, others can be unscaled
 void main_filter(float DCM[3][3], float magno[3], float accel[3], float euler_out[3], float gyro[3], float d_t) {
 	static float I[3];//Integral offset
