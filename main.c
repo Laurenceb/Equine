@@ -532,6 +532,10 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
 		gps_state--;
 		if(gps_state<2)
 			gps_state=2;			//Countdown from 255 to 2 - if we don't have a fix for a while, reinitialise
+		if(!GPS_telem.flag) {
+			GPS_telem.velocity=-1;		//Signals that the data is invalid as there is no GPS fix
+			GPS_telem.flag=1;		//Flag as new data arrived
+		}
 	}//Stuff in the number of sats (upper byte), the gps status code (lowest nibble), and the system status (second to lowest nibble). This always happens
 	data_gps[6]=(int16_t)(((uint16_t)Gps_->nosats)<<8|(uint16_t)((Gps_->status)&0x0f))|((system_state_&0x0f)<<4);
 	return (3-Gps_->status);

@@ -84,8 +84,9 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	/* enable DMA clock */
 	RCC_AHBPeriphClockCmd(RCC_AHBPeriph_DMA1, ENABLE);
 
-	/* enable the clock to the ADS1298, using PWM output from the STM32 */
-	setup_pwm();
+	/* enable the clock to the ADS1298, using PWM output from the STM32. A startnow code of 1 or 2 causes PWM config */
+	if(startnow)
+		setup_pwm();
 
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;//Lower pre-emption priority
 	NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel4_IRQn;//The DMA complete/half complete triggered interrupt	
@@ -137,7 +138,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	else if((part&0x0F)==0)
 		Enable&=~0xF0;
 	old_quality_mask=~Enable;				//Globals initialised for reference, assume that all enabled channels are active
-	if(startnow)
+	if(startnow==2)						//An argument of two to startnow sets up the PWM and sends the start command, starting transactions
 		ads1298_busy_wait_command(ADS1298_START);	//Might be worth calling this later once we have some GPS and other config is complete (so we are ready to run)?
 	//ads1298_busy_wait_command(ADS1298_RDATAC);
 	return part;						/* Return the part number */
