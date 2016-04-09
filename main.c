@@ -162,13 +162,12 @@ int main(void)
 		Delay(25000);
 	} while(fabs(Battery_Voltage-battery_voltage)>0.01 || !battery_voltage);
 	I2C_Config();					//Setup the I2C bus
-	Sensors=detect_sensors(&ADS_conf);		//Search for connected sensors, probes the I2C for the IMU sensor and sets us and tests GPS and ADS1298
+	setup_pwm();					//Start clocking the ECG front end (we need to leave it running and clocked for ~0.2s at boot)
+	Sensors=detect_sensors();			//Search for connected sensors, probes the I2C for the IMU sensor and sets us and tests GPS and ADS1298
 	if(battery_voltage<BATTERY_STARTUP_LIMIT)	//detect_sensors sets up and self tests all the sensors, should have all 3 sensors present
 		deadly_flashes=1;
 	else if(!(Sensors&(1<<LSM9DS1)))
 		deadly_flashes=2;
-	else if(!(Sensors&(1<<ADS1298)))
-		deadly_flashes=3;
 	else if(!(Sensors&(1<<UBLOXGPS)))
 		deadly_flashes=4;
 	// system has passed battery level check and so file can be opened
@@ -199,7 +198,7 @@ int main(void)
 		}
 		// Load settings if file exists
 		if(!f_open(&FATFS_wavfile,"settings.dat",FA_OPEN_EXISTING | FA_READ)) {
-			if(!read_config_file(&FATFS_wavfile, &ADS_conf, &rtc_correction)) {//TODO ___, use GPS timestamp together with BBRAM to correct rtc>
+			if(!read_config_file(&FATFS_wavfile, &ADS_conf, &rtc_correction)) {// Can also use GPS timestamp together with BBRAM to correct rtc>
 				if((rtc_correction<30) && (rtc_correction>-92) && rtc_correction ) /*Setting an RTC correction of 0x00 will enable GPS correction*/
 					set_rtc_correction(rtc_correction);
 				else if(((uint8_t)rtc_correction==0x91) ) {/* 0x91 magic flag sets the RTC clock output on */
@@ -306,7 +305,16 @@ int main(void)
 			else
 				file_opened|=0x04;//So we know to close the file properly on shutdown - bit mask for the files
 		}
-	}	
+	}
+	//The µSD card boot takes longer than 200ms, so enough time has passed for the ECG front end to be usable, configure it here
+	if(!f_err_code && !deadly_flashes) {		//Everything is ok so far
+		uint8_t res=ads1298_setup(&ADS_conf, 0);//First setup ADS1298, but don't start immediatly (I2C reads and data passing to BT & SP1ML dovetail off this)
+		ADS_conf.updated_flag=0;		//This isn't actually used for anything important at the moment
+		if(res==ADS1298_ID || res==ADS1298R_ID ||res==ADS1296_ID ||res==ADS1296R_ID ||res==ADS1294_ID ||res==ADS1294R_ID )
+			Sensors|=(1<<ADS1298);		//Device is present
+		if(!(Sensors&(1<<ADS1298)))
+			deadly_flashes=3;		//ADS1298 failure flash code
+	}
 	//We die, but flash out a number of flashes first
 	if(f_err_code && !deadly_flashes)
 		deadly_flashes=5;			//5 flashes means card error
@@ -323,10 +331,6 @@ int main(void)
 		shutdown();				//Abort after a (further )single red flash
 	}
 	Watchdog_Reset();				//Card Init can take a second or two
-	if(ADS_conf.updated_flag) {			//Reinit the ADS1298, as the settings have been updated
-		ads1298_setup(&ADS_conf, 0);		//Should not matter if we reinit the device?
-		ADS_conf.updated_flag=0;
-	}
 	{
 	uint8_t ads_gain=ads1298_gain();		//The gain value which is being used
 	RN42_tx_sequence_number=ads_gain;		//The initial RN42 sequence number is set as the gain (can do this and used as should be no BT packet loss)
@@ -443,12 +447,10 @@ int main(void)
   * @param  Pointer to the ADS1298 config structure
   * @retval Flag byte containing status flags for the hardware
   */
-uint8_t detect_sensors(ADS_config_type* config) {//Detects and sets up all three sensors (ADS1298, LSM9DS1, and Ublox)
-	uint8_t res=ads1298_setup(config, 0);	//First setup the ADS1298, but don't start it immediatly (I2C reads and data passing to BT & SP1ML dovetail off this)
-	if(res==ADS1298_ID || res==ADS1298R_ID ||res==ADS1296_ID ||res==ADS1296R_ID ||res==ADS1294_ID ||res==ADS1294R_ID )
-		res|=(1<<ADS1298);		//Device is present
+uint8_t detect_sensors(void) {//Detects and sets up all three sensors (ADS1298, LSM9DS1, and Ublox)
 	SCHEDULE_CONFIG;			//Run the I2C devices config
 	uint32_t millis=Millis;
+	uint8_t res=0;
 	while(Jobs) {//while((I2C1->CR2)&(I2C_IT_EVT));//Wait for the i2c driver to complete
 		if(Millis>(millis+20))
 			return 0;
