@@ -12,3 +12,4 @@ void setADC2(uint8_t channel);
 uint16_t readADC2(uint8_t channel);
 uint16_t getADC2(void);
 float getBatteryVoltage(void);
+uint8_t getBatteryPercentage(float voltage);

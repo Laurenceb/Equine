@@ -366,7 +366,7 @@ int main(void)
 		if(Gps.packetflag==REQUIRED_DATA) {	//GPS packet arrived, run GPS formatter below
 			uint8_t gps_code=process_gps_data(raw_data_gps,&Gps,system_state, rtc_correction);//puts GPS data into it's wav file buffer as int16_t data
 			Gps.packetflag=0;
-			//TODO load both GPS data and a copy of the battery voltage into a global used by the telemetry packer here (consumed by sp1ml_command.c)
+			//GPS data and a copy of the battery voltage are packed into a global used by the telemetry packer in process_gps (read by sp1ml_command.c)
 			samples[0]++;			//Low rate sample arrived
 			pad_drop=aligndata(samples, 250/5);//250hz versus 5hz
 			write_wave_samples(&FATFS_wavfile_gps, 6, 16, &(this_stuffer[2]), raw_data_gps, 2);//Already converted GPS into correct format
@@ -516,16 +516,18 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
 		data_gps[4]=Gps_->vnorth;		//This happens whenever there is a fix
 		data_gps[5]=Gps_->veast;
 		if(!GPS_telem.flag) {			//Only do this if the global has been unlocked
-			if(!tel_state--) {			//Pack the telemetry into the telemetry struct, heading is the battery voltage on every third packet
-				GPS_telem.heading=(int16_t)(Battery_Voltage*-1000.0);//A negative value in millivolts
+			if(!tel_state--) {		//Pack the telemetry into the telemetry struct, heading is the battery voltage on every third packet
+				uint16_t tmp_packer=getBatteryPercentage(Battery_Voltage);//The lower 7 bits are used for the percentage charged status
+				tmp_packer|=(((uint16_t)((Battery_Voltage-3.3)*250.0))&0x00FF)<<7;//A value in 4 millivolt units, offset from 3.3v, range limit 4.32v 
+				GPS_telem.heading=-(int16_t)tmp_packer;//A negative value containing actual voltage (8 bits), percentage (lower 7 bits)
 				tel_state=3;
 			}
 			else
 				GPS_telem.heading=(int16_t)(180.0+(180.0/M_PI)*atan2(Gps_->vnorth,Gps_->veast));//Heading range 0 to 360 degrees, clockwise from North
 			GPS_telem.velocity=sqrtf(Gps_->vnorth*Gps_->vnorth+Gps_->veast*Gps_->veast);
-			GPS_telem.n_pos=data_gps[0];//Positions in meters (these will be loaded with lat and long with first two packets after the first GPS fix)
+			GPS_telem.n_pos=data_gps[0];	//Positions in meters (these will be loaded with lat and long with first two packets after the first GPS fix)
 			GPS_telem.e_pos=data_gps[1];
-			GPS_telem.flag=1;//Flag as new data arrived
+			GPS_telem.flag=1;		//Flag as new data arrived
 		}
 	}
 	else {

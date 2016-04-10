@@ -124,4 +124,20 @@ float getBatteryVoltage(void) {//This starts a new conversion to run as soon as 
 	return battery_level;
 }
 
-
+/**
+* @brief This function converts a battery level voltage to a percentage as unsigned integer, calibrated to the BAK LP-503759-IS-3 1350mAh cell, but matches most lipo
+* @param Float voltage in volts
+* @retval Value as unsigned integer in the range 0 to 100
+*/
+uint8_t getBatteryPercentage(float voltage) {
+	if(voltage>4.0) {
+		uint8_t charged=(uint8_t)((voltage-4.0)*50.0)+90;
+		return charged>100?100:charged;
+	}
+	else if(voltage>3.75)
+		return (uint8_t)((voltage-3.75)*160.0)+50;
+	else if(voltage>3.5)
+		return (uint8_t)((voltage-3.5)*180.0)+5;
+	else
+		return (uint8_t)((voltage-MINIMUM_VOLTAGE)*(5.0/(3.5-MINIMUM_VOLTAGE)));
+}
