@@ -126,7 +126,7 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 						if(magnitude<0) {
 							float acc[3];
 							for(uint8_t m=0; m<3; m++)
-								acc[m]=(float)(*(int16_t*)&(LSM9DS1_Acc_Buffer[m]));;
+								acc[m]=(float)(*(int16_t*)&(LSM9DS1_Acc_Buffer[m]))*LSM9DS1_ACC_SCALE_FACTOR;
 							magnitude=sqrtf(acc[0]*acc[0]+acc[1]*acc[1]+acc[2]*acc[2]);//mG acc offset from 1G (range is -1000 to +15000)
 						}
 						int16_t magn=(int16_t)((magnitude-1.0)*1e3);
