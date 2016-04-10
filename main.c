@@ -524,7 +524,7 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
 			}
 			else
 				GPS_telem.heading=(int16_t)(180.0+(180.0/M_PI)*atan2(Gps_->vnorth,Gps_->veast));//Heading range 0 to 360 degrees, clockwise from North
-			GPS_telem.velocity=sqrtf(Gps_->vnorth*Gps_->vnorth+Gps_->veast*Gps_->veast);
+			GPS_telem.velocity=roundf(3.6*sqrtf(Gps_->vnorth*Gps_->vnorth+Gps_->veast*Gps_->veast));//Speed is in km/h
 			GPS_telem.n_pos=data_gps[0];	//Positions in meters (these will be loaded with lat and long with first two packets after the first GPS fix)
 			GPS_telem.e_pos=data_gps[1];
 			GPS_telem.flag=1;		//Flag as new data arrived
