@@ -168,8 +168,8 @@ int main(void)
 		deadly_flashes=1;
 	else if(!(Sensors&(1<<LSM9DS1)))
 		deadly_flashes=2;
-	//else if(!(Sensors&(1<<UBLOXGPS)))
-	//	deadly_flashes=4;
+	else if(!(Sensors&(1<<UBLOXGPS)))
+		deadly_flashes=4;
 	// system has passed battery level check and so file can be opened
 	uint8_t br;
 	if((f_err_code = f_mount(0, &FATFS_Obj))) {
