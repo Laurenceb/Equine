@@ -12,6 +12,7 @@ void setup_gpio(void)
 	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB|RCC_APB2Periph_GPIOA|RCC_APB2Periph_AFIO, ENABLE);//GPIO/AFIO clks
 	setuppwr();				//configure power control
 	disable_pin();				//disable WKUP pin functionality
+	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);//disable JTAG but keep SWD lines
 	//Configure and read the Charger_EN/VBus pin - this has a pullup to V_USB, so if it reads 1 we booted off usb so setup USB detatch isr
 	GPIO_InitStructure.GPIO_Pin = VBUS_DETECT;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;
@@ -29,12 +30,11 @@ void setup_gpio(void)
 		}
 	}
 	//Configure the io pins
-	//Pull up the SD CS pin
-	GPIO_InitStructure.GPIO_Pin =  SD_SEL_PIN;
+	//Pull up the SD CS etc pins
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;//pullup
-	GPIO_Init( GPIOB, &GPIO_InitStructure );/* configure SDSEL pin as input pull up until the SD driver is intialised*/
-	//Pull up all the SD SPI lines until the bus is intialized - SD spec says (MISO?), CLK, and MOSI should be pulled up at poweron
-	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5 | GPIO_Pin_7;
+	/* configure SDSEL pin as input pull up until the SD driver is intialised*/
+	//Pull up all the SD SPI lines until the bus is intialized - SD spec says MISO, (CLK?), and MOSI should be pulled up at poweron
+	GPIO_InitStructure.GPIO_Pin = SD_SEL_PIN | /*GPIO_Pin_5 |*/ GPIO_Pin_6 | GPIO_Pin_7;
 	GPIO_Init( GPIOA, &GPIO_InitStructure );		
 	//LEDS
 	GPIO_InitStructure.GPIO_Pin = RED|GREEN;
@@ -49,14 +49,14 @@ void setup_gpio(void)
 		GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPD;//pulldown
 	GPIO_Init( GPIOA, &GPIO_InitStructure );/* configure WKUP pin as input pull down/up for button*/
 	//Power supply enable
-	GPIO_InitStructure.GPIO_Pin = PWREN;
+	GPIO_InitStructure.GPIO_Pin = PWREN_;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;//pushpull
 	GPIO_Init( GPIOB, &GPIO_InitStructure );
 	if(!(CoreDebug->DHCSR&0x00000001)) {
-		GPIO_WriteBit(GPIOB,PWREN,Bit_RESET);//Make sure power enabled
+		GPIO_WriteBit(GPIOB,PWREN_,Bit_RESET);//Make sure power enabled
 		Delay(50000);
 	}
-	GPIO_WriteBit(GPIOB,PWREN,Bit_SET);	//Make sure power enabled
+	GPIO_WriteBit(GPIOB,PWREN_,Bit_SET);	//Make sure power enabled
 	//Configure the ADC input
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_1;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AIN;

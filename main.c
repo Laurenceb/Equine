@@ -76,7 +76,7 @@ int main(void)
 	Usarts_Init();
 	ISR_Config();
 	rprintfInit(__usart_send_char);			//Printf over the bluetooth
-	if(USB_SOURCE==bootsource) {
+	if(USB_SOURCE==bootsource && false) {
 		Set_System();				//This actually just inits the storage layer
 		Set_USBClock();
 		USB_Interrupts_Config();
@@ -168,16 +168,16 @@ int main(void)
 		deadly_flashes=1;
 	else if(!(Sensors&(1<<LSM9DS1)))
 		deadly_flashes=2;
-	else if(!(Sensors&(1<<UBLOXGPS)))
-		deadly_flashes=4;
+	//else if(!(Sensors&(1<<UBLOXGPS)))
+	//	deadly_flashes=4;
 	// system has passed battery level check and so file can be opened
 	uint8_t br;
 	if((f_err_code = f_mount(0, &FATFS_Obj))) {
 		Usart_Send_Str((char*)"FatFs mount error\r\n");    //This should only error if internal error
 	}
 	else if(!deadly_flashes){		//FATFS and the I2C initialised ok, try init the card)
-		if(!f_open(&FATFS_wavfile,"time.txt",FA_OPEN_EXISTING | FA_READ | FA_WRITE)) {//Try and open a time file to get the system time
-			if(!f_stat((const TCHAR *)"time.txt",&FATFS_info)) {//Get file info
+		if(!(f_err_code = f_open(&FATFS_wavfile,"time.txt",FA_OPEN_EXISTING | FA_READ | FA_WRITE))) {//Try open a time file to get the system time
+			if(!(f_err_code = f_stat((const TCHAR *)"time.txt",&FATFS_info))) {//Get file info
 				if(FATFS_info.fsize<5) {	//Empty file
 					RTC_time.year=(FATFS_info.fdate>>9)+1980;//populate the time struct (FAT start==1980, RTC.year==0)
 					RTC_time.month=(FATFS_info.fdate>>5)&0x000F;
@@ -218,13 +218,15 @@ int main(void)
 		rprintfInit(__str_print_char);		//Print to the string
 		//timestamp name, includeds the date and the device Serial Number
 		printf("%d-%02d-%02dT%02d-%02d-%02d-%s",RTC_time.year,RTC_time.month,RTC_time.mday,RTC_time.hour,RTC_time.min,RTC_time.sec,SerialNumber);
-		rprintfInit(__usart_send_char);	//Printf over the bluetooth
-		f_err_code = f_mkdir(print_string); //Try to make a directory where the logfiles will live
+		rprintfInit(__usart_send_char);		//Printf over the bluetooth
+		f_err_code = f_mkdir(print_string); 	//Try to make a directory where the logfiles will live
 		uint8_t repetition_counter=0;
-		if(f_err_code) {
+		if(f_err_code && (f_err_code!=FR_NO_FILE)) {//Only one error code is allowed, the no file error
 			printf("FatFs drive error %d\r\n",f_err_code);
 			if(f_err_code==FR_DISK_ERR || f_err_code==FR_NOT_READY)
 				Usart_Send_Str((char*)"No uSD card inserted?\r\n");
+			if(f_err_code==FR_NO_FILE)
+				f_err_code=FR_OK;	//Wipe this error as it generally means the card is ok, but no time.txt or settings.dat file
 			repetition_counter=1;
 		}
 		else
@@ -244,6 +246,7 @@ int main(void)
 			repetition_counter=1;
 		}
 		else {	
+			Watchdog_Reset();
 			print_string[strlen(print_string)-4]=0x00;	//Wipe the .wav off the string
 			strcat(print_string,"_gps.wav");
 			f_err_code=f_open(&FATFS_wavfile_gps,print_string,FA_CREATE_ALWAYS | FA_WRITE);//Try to open the gps wav logfile
@@ -274,6 +277,7 @@ int main(void)
 				else
 					rprintfInit(__str_print_char);//Printf to the logfile
 			}
+			Watchdog_Reset();
 			if(f_err_code)
 				f_close(&FATFS_wavfile);//Close the already opened file on error
 			else
@@ -287,6 +291,7 @@ int main(void)
 						Usart_Send_Str((char*)"Seek error\r\n");
 				}
 			}
+			Watchdog_Reset();
 			if(f_err_code)
 				f_close(&FATFS_wavfile_gps);//Close the already opened file on error
 			else

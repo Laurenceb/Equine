@@ -68,7 +68,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	SPI_InitStructure.SPI_CPOL = SPI_CPOL_Low;
 	SPI_InitStructure.SPI_CPHA = SPI_CPHA_2Edge;
 	SPI_InitStructure.SPI_NSS = SPI_NSS_Soft;//SPI_NSS_Hard;
-	SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_2; // (73.728MHz/4)/2=9.216MHz, assumes 18.432Mhz PCLK2, i.e. 73.728mhz/4
+	SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_16; // (73.728MHz/2)/16=2.3040MHz, assumes 36.864Mhz PCLK2, i.e. 73.728mhz/2
 	SPI_InitStructure.SPI_FirstBit = SPI_FirstBit_MSB;
 	SPI_InitStructure.SPI_CRCPolynomial = 7;
 
@@ -208,6 +208,7 @@ void ads1298_busy_wait_write(uint8_t tx_bytes, uint8_t register_number, uint8_t 
 	while( SPI2->SR & SPI_I2S_FLAG_BSY );	//Wait until SPI is not busy anymore
 	Delay(3);				//There needs to be a delay of at least 2us
 	NSEL_HIGH;
+	Delay(2);
 }
 
 /**
@@ -218,6 +219,7 @@ void ads1298_busy_wait_write(uint8_t tx_bytes, uint8_t register_number, uint8_t 
 void ads1298_busy_wait_read(uint8_t rx_bytes, uint8_t register_number, uint8_t *rx_data) {
 	NSEL_LOW;
 	uint8_t tx_payload[2];
+	uint8_t dummy=SPI2->DR;			//Dummy read to ensure RX is clear
 	tx_payload[0]=(register_number&0x1F)|0x20;
 	tx_payload[1]=(rx_bytes-1)&0x1F;	//This is the 'packet' format command to the ADS
 	uint8_t exchanged_bytes=rx_bytes+2;	//There are two extra bytes
@@ -227,11 +229,15 @@ void ads1298_busy_wait_read(uint8_t rx_bytes, uint8_t register_number, uint8_t *
 		else
 			SPI_I2S_SendData(SPI2,0x00);//Send padding zeros after the header
 		while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_RXNE) == RESET);
-		rx_data[n-2]=SPI2->DR;		//Read the data after it arrives
+		if(n<2)
+			dummy=SPI2->DR;
+		else
+			rx_data[n-2]=SPI2->DR;	//Read the data after it arrives
 	}
 	while( SPI2->SR & SPI_I2S_FLAG_BSY );	//Wait until SPI is not busy anymore
 	Delay(3);				//There needs to be a delay of at least 2us
 	NSEL_HIGH;
+	Delay(2);
 }
 
 /**
@@ -241,11 +247,12 @@ void ads1298_busy_wait_read(uint8_t rx_bytes, uint8_t register_number, uint8_t *
   */
 void ads1298_busy_wait_command(uint8_t command) {
 	NSEL_LOW;
-	SPI_I2S_SendData(SPI1,command);
-	while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET);
-	while( SPI1->SR & SPI_I2S_FLAG_BSY );	//Wait until SPI is not busy anymore
+	SPI_I2S_SendData(SPI2,command);
+	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
+	while( SPI2->SR & SPI_I2S_FLAG_BSY );	//Wait until SPI is not busy anymore
 	Delay(3);				//There needs to be a delay of at least 2us
 	NSEL_HIGH;
+	Delay(2);
 }
 
 /**
@@ -602,11 +609,13 @@ __attribute__((externally_visible)) void DMA1_Channel4_IRQHandler(void) {
 			if(thistask==RLD_STAT)			/* we just retreived the RLD_STAT self test result */
 				rld_quality=raw_data[2]&0x01;	/* the first read byte (after header) is the RLD register */
 		}
-		if(t_entry>t_exit)
-			while(SysTick->VAL>t_exit && SysTick->VAL<t_entry);/* wait for 4 ADS1298 clocks (assumes ADS1298 is at f_cpu/36) */
-		else
-			while((SysTick->VAL>t_exit)==(SysTick->VAL>t_entry));/* the wrap around case */
-		NSEL_HIGH; 					/* Deselect device */
+		if((!read_transaction) || (!ads1298_transaction_queue)) {/* there is nothing ongoing, shut down. Note otherwise we don't reset with NSEL */
+			if(t_entry>t_exit)
+				while(SysTick->VAL>t_exit && SysTick->VAL<t_entry);/* wait for 4 ADS1298 clocks (assumes ADS1298 is at f_cpu/36) */
+			else
+				while((SysTick->VAL>t_exit)==(SysTick->VAL>t_entry));/* the wrap around case */
+			NSEL_HIGH; 				/* Deselect device */
+		}
 	}
 	else
 		DMA_ClearITPendingBit(DMA1_IT_GL4);		/* clear all the interrupts */

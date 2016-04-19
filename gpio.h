@@ -7,7 +7,7 @@
 #define GREEN		GPIO_Pin_6
 
 #define WKUP		GPIO_Pin_0
-#define PWREN		GPIO_Pin_4
+#define PWREN_		GPIO_Pin_4
 #define CHARGER_EN	GPIO_Pin_8
 #define SD_SEL_PIN	GPIO_Pin_4
 

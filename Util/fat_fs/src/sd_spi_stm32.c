@@ -66,8 +66,8 @@
  #define SOCKET_WP_CONNECTED      0		/*These are defined as 0 as they arent supported on CRT 1.0 pcb*/
  #define SOCKET_CP_CONNECTED      0
  #define SPI_SD                   SPI1
- #define GPIO_CS                  GPIOB
- #define RCC_APB2Periph_GPIO_CS   RCC_APB2Periph_GPIOB
+ #define GPIO_CS                  GPIOA
+ #define RCC_APB2Periph_GPIO_CS   RCC_APB2Periph_GPIOA
  #define GPIO_Pin_CS              SD_SEL_PIN
  #define DMA_Channel_SPI_SD_RX    DMA1_Channel2
  #define DMA_Channel_SPI_SD_TX    DMA1_Channel3

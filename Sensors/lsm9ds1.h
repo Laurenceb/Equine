@@ -6,8 +6,8 @@
 #include "main.h"
 
 //Sensor main bus address
-#define A_G_ADDR 0x68
-#define M_ADDR 0x3D
+#define A_G_ADDR 0xD4
+#define M_ADDR 0x38
 
 //Register addresses for the data
 

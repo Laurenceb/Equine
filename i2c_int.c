@@ -338,12 +338,13 @@ void I2C_Config() {			//Configure I2C1 for the sensor bus
 	Delay(10);
  	GPIO_SetBits(GPIOB,I2C1_SDA);//Set bus sda high
 	//Enable the hardware
+	GPIO_PinRemapConfig(GPIO_Remap_I2C1, ENABLE);//Remap I2C1 for the ECG board to B8 and 9
 	/*Enable the I2C1 clk*/
 	RCC_APB1PeriphClockCmd(RCC_APB1Periph_I2C1, ENABLE);
 	I2C_DeInit(I2C1);		//Deinit and reset the I2C to avoid it locking up
 	I2C_SoftwareResetCmd(I2C1, ENABLE);
+	Delay(2);
 	I2C_SoftwareResetCmd(I2C1, DISABLE);
-	GPIO_PinRemapConfig(GPIO_Remap_I2C1, ENABLE);//Remap I2C1 for the ECG board to B8 and 9
 	I2C_ITConfig(I2C1, I2C_IT_EVT|I2C_IT_ERR, DISABLE);//Disable EVT and ERR interrupts - they are enabled by the first request
 	I2C_Init( I2C1, &I2C_InitStructure );
 	I2C_Cmd( I2C1, ENABLE );
