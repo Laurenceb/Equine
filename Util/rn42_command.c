@@ -23,13 +23,15 @@ uint8_t RN42_get_name(uint8_t SerialNumber[8], uint8_t allowconfig) {
 		while(Millis<(millis+150)) {		//Times out after 150ms
 			if(anything_in_buff((&Usart1_rx_buff))) {//Get serial number and place in buffer
 				Get_From_Buffer(&(SerialNumber[counter]),&Usart1_rx_buff);//Take from buffer
-				if((SerialNumber[counter++]=='\n') || (counter>=7)) { //Break out if we get '\r' or reach end of the string
+				if((SerialNumber[counter]=='\n') || (SerialNumber[counter]=='\r') || (counter>=7)) { //Break out if '\r' or reach end
+					SerialNumber[counter]=0x00;//Null terminate
 					break;
 				}
+				counter++;
 			}
 		}
 		if(counter>2) {
-			SerialNumber[counter-2]=0;	//Remove the return
+			//SerialNumber[counter-2]=0;	//Remove the return
 			datavar=0;			//Success
 		}
 		else {					//Something wrong - no name
@@ -59,14 +61,14 @@ uint8_t RN42_get_command(void)
 	uint32_t millis_waitreply;
 	uint8_t datavar;				//Used to store the read characters
 	const char Reply[]="CMD\r\n";
-	while(Millis<(millis_startget+1200)) {		//Loop in here until we break out or we get timeout
+	while(Millis<(millis_startget+1550)) {		//Loop in here until we break out or we get timeout
 		uint8_t read_characters=0;
 		while(anything_in_buff(&Usart1_rx_buff)) {//Empty any data from buffer
 			Get_From_Buffer(&datavar,&Usart1_rx_buff);//Take from buffer
 		}
 		Usart_Send_Str((char*)"$$$");		//Try to enter Command Mode
 		millis_waitreply=Millis;		//Store the time at which we sent the command
-		while(Millis<(millis_waitreply+370)) {	//Wait for a timeout or the correct reply
+		while(Millis<(millis_waitreply+500)) {	//Wait for a timeout or the correct reply
 			if(anything_in_buff(&Usart1_rx_buff)) {//Get any data from buffer
 				Get_From_Buffer(&datavar,&Usart1_rx_buff);
 				if(Reply[read_characters]==datavar) { //Take from buffer and compare
@@ -75,7 +77,7 @@ uint8_t RN42_get_command(void)
 				else {
 					read_characters=0;
 				}
-				if(read_characters==(sizeof(Reply))-1) {
+				if(read_characters==(sizeof(Reply)-1)) {
 					return 0;
 				}
 			}

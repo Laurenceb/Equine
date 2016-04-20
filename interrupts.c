@@ -68,12 +68,16 @@ void ISR_Config(void) {
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;	//The DRDY triggered interrupt	
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;//Lower pre-emption priority
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x05;	//second to lowest group priority - data comes in at only 250hz, so plenty of time
+	NVIC_Init(&NVIC_InitStructure); 
 	//NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	/* Enable and set EXTI Interrupt to second to lowest, this is the CTS from the SP1ML SPIRIT1 module */
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;	//The CTS triggered interrupt	
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;//Lower pre-emption priority
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x04;
+	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource15);//CTS
+	EXTI_InitStructure.EXTI_Line = EXTI_Line15;
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising_Falling;//Trigger any time that the level changes
+	EXTI_Init(&EXTI_InitStructure);
 	NVIC_Init(&NVIC_InitStructure);
 }
 

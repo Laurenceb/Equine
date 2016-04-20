@@ -3,7 +3,8 @@
 #include "buffer.h"
 
 void Add_To_Buffer(void * data, buff_type* buffer) {
-	memcpy(&(buffer->data[buffer->head+=buffer->block]),data,buffer->block);//Put data in and increment, use memcpy to copy the correct number of bytes
+	memcpy(&(buffer->data[buffer->head]),data,buffer->block);//Put data in and increment, use memcpy to copy the correct number of bytes
+	buffer->head+=buffer->block;
 	buffer->head%=buffer->size;
 	if(buffer->head==buffer->tail)	//Buffer wraparound due to filling
 		buffer->tail=(buffer->tail+buffer->block)%buffer->size;
@@ -15,7 +16,7 @@ uint8_t Get_From_Buffer(void * data, buff_type* buffer) {
 		return 1;		//Error - no data in buffer
 	}
 	else {
-		memcpy((uint8_t*)data,&buffer->data[buffer->tail],buffer->block);//grab a data sample from the buffer
+		memcpy((uint8_t*)data,&(buffer->data[buffer->tail]),buffer->block);//grab a data sample from the buffer
 		buffer->tail+=buffer->block;
 		buffer->tail%=buffer->size;
 		return 0;		//No error
@@ -60,6 +61,8 @@ void Init_Buffer( buff_type* buff, uint16_t size, uint8_t blocksize) {
 	buff->data=(uint8_t*)malloc(size*blocksize);
 	buff->size=size*blocksize;
 	buff->block=blocksize;
+	buff->head=0;
+	buff->tail=0;
 }
 
 void Init_Dma_Buffer(volatile dma_buff_type* buff, uint16_t size) {

@@ -28,7 +28,7 @@ struct _reent my_reent;
 //Global variables - other files (e.g. hardware interface/drivers) may have their own globals
 extern uint16_t MAL_Init (uint8_t lun);			//For the USB filesystem driver
 volatile uint8_t file_opened=0;				//So we know to close any opened files before turning off
-uint8_t print_string[25];				//For printf data - only used for some file header stuff
+uint8_t print_string[36]="";				//For printf data - only used for some file header stuff
 UINT a;							//File bytes counter
 volatile uint32_t Millis;				//System uptime (rollover after 50 days)
 volatile uint32_t Last_WDT;				//For detection of a jammed state
@@ -360,6 +360,8 @@ int main(void)
 	int16_t raw_data_imu[10]={};
 	int16_t raw_data_gps[6]={};			//Low rate GPS data (converted into units suitable for wav)
 	while(1) {
+		if(!GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_7))// Handle pin already low
+			EXTI_GenerateSWInterrupt(EXTI_Line7);
 		while(!anything_in_buff(&IMU_buff[9])) {
 			__WFI();			//Await the last part of buffer filling
 		}
@@ -578,7 +580,7 @@ void __fat_print_char(char c)
   */
 void __str_print_char(char c)
 {
-	uint8_t indx=strlen((const char *)print_string)%255;//Make sure we cant overwrite ram
+	uint8_t indx=strlen((const char *)print_string)%(36-1);//Make sure we cant overwrite ram
 	print_string[indx]=c;				//Append string
 	print_string[indx+1]=0x00;			//Null terminate
 	__usart_send_char(c);				//Send to the bluetooth as well

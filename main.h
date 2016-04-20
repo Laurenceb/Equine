@@ -22,7 +22,7 @@ extern volatile uint32_t Last_WDT;
 
 extern volatile uint8_t System_state_Global;
 extern volatile uint8_t Sensors;
-extern uint8_t print_string[25];
+extern uint8_t print_string[36];
 extern FIL FATFS_wavfile,FATFS_wavfile_gps,FATFS_wavfile_imu;
 
 extern volatile uint8_t Shutdown_System;
