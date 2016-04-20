@@ -224,12 +224,10 @@ int main(void)
 		if(f_err_code && (f_err_code!=FR_NO_FILE)) {//Only one error code is allowed, the no file error
 			printf("FatFs drive error %d\r\n",f_err_code);
 			if(f_err_code==FR_DISK_ERR || f_err_code==FR_NOT_READY)
-				Usart_Send_Str((char*)"No uSD card inserted?\r\n");
-			if(f_err_code==FR_NO_FILE)
-				f_err_code=FR_OK;	//Wipe this error as it generally means the card is ok, but no time.txt or settings.dat file
+				Usart_Send_Str((char*)"No uSD card inserted?\r\n");	
 			repetition_counter=1;
 		}
-		else
+		else					//Wipe FR_NO_FILE error as it generally means the card is ok, but no time.txt or settings.dat file
 			f_err_code=f_chdir(print_string);//enter our new directory
 		if(f_err_code) {
 			if(!repetition_counter)
