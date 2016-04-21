@@ -42,22 +42,22 @@ void handle_lsm9ds1(void) {
 		for(uint8_t n=0; n<3; n++)
 			Add_To_Buffer(&(LSM9DS1_Mag_Buffer[n]),&IMU_buff[6+n]);
 		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.temp),&IMU_buff[9]);
-		if(!GET_LSM9DS1_DTRD) {		//If there is some new data (otherwise we load anyway so it gets padded)
-			if((Completed_Jobs&CONFIG_SENSORS)==CONFIG_SENSORS) {//Only schedule new reads if sensors are present and running
-				I2C1_Request_Job(LSM9DS1_GYRO);//The Completed_Jobs should first be wiped if the sensors need to be reinitialised
-				I2C1_Request_Job(LSM9DS1_ACC);
-				I2C1_Request_Job(LSM9DS1_MAGNO);//Read everything again
-			}
-			if(memcmp(LSM9DS1_Acc_Buffer,copy_acc,sizeof(copy_acc)) && !I2C1error.error) {
-				I2C_failure=0;
-				memcpy(copy_acc,LSM9DS1_Acc_Buffer,sizeof(copy_acc));//Copy for reference
-			}
-			else
-				I2C_failure++;	//Failure increases if DTRD doesnt go low or we have repeated data or an error. It's reset if all ok
+	}
+	if(!GET_LSM9DS1_DTRD) {			//If there is some new data (otherwise we load anyway so it gets padded)
+		if((Completed_Jobs&CONFIG_SENSORS)==CONFIG_SENSORS) {//Only schedule new reads if sensors are present and running
+			I2C1_Request_Job(LSM9DS1_GYRO);//The Completed_Jobs should first be wiped if the sensors need to be reinitialised
+			I2C1_Request_Job(LSM9DS1_ACC);
+			I2C1_Request_Job(LSM9DS1_MAGNO);//Read everything again
+		}
+		if(memcmp(LSM9DS1_Acc_Buffer,copy_acc,sizeof(copy_acc)) && !I2C1error.error) {
+			I2C_failure=0;
+			memcpy(copy_acc,LSM9DS1_Acc_Buffer,sizeof(copy_acc));//Copy for reference
 		}
 		else
-			I2C_failure++;
+			I2C_failure++;		//Failure increases if DTRD doesnt go low or we have repeated data or an error. It's reset if all ok
 	}
+	else
+		I2C_failure++;
 }
 
 /**

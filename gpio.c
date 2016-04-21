@@ -9,7 +9,7 @@ void setup_gpio(void)
 {
 	GPIO_InitTypeDef	GPIO_InitStructure;
 	//enable the clocks 
-	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB|RCC_APB2Periph_GPIOA|RCC_APB2Periph_AFIO, ENABLE);//GPIO/AFIO clks
+	RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB|RCC_APB2Periph_GPIOA|RCC_APB2Periph_GPIOC|RCC_APB2Periph_AFIO, ENABLE);//GPIO/AFIO clks
 	setuppwr();				//configure power control
 	disable_pin();				//disable WKUP pin functionality
 	GPIO_PinRemapConfig(GPIO_Remap_SWJ_JTAGDisable, ENABLE);//disable JTAG but keep SWD lines
@@ -65,6 +65,9 @@ void setup_gpio(void)
 	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_7;
 	GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
 	GPIO_Init( GPIOB, &GPIO_InitStructure );
+	//Configure the accel/gyro/magno data ready (C13) to input pull up. Hopefully the pull up is strong enough to work?
+	GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13;
+	GPIO_Init( GPIOC, &GPIO_InitStructure );
 	//Configure anything else here
 }
 

@@ -55,7 +55,7 @@ void ISR_Config(void) {
 	NVIC_Init(&NVIC_InitStructure); 
 	/* Enable the DRDY interrupt pin, used to signal data ready from the ECG front end */
 	EXTI_InitTypeDef   EXTI_InitStructure;
-	EXTI_DeInit();
+	EXTI_DeInit();						//Note that this kills all EXTI settings!
 	/* Connect EXTI7 Line to PB.7 pin - DRDY*/
 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource7);
 	/* Configure EXTI7 line */
@@ -68,8 +68,8 @@ void ISR_Config(void) {
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;	//The DRDY triggered interrupt	
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;//Lower pre-emption priority
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x05;	//second to lowest group priority - data comes in at only 250hz, so plenty of time
-	NVIC_Init(&NVIC_InitStructure); 
 	//NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure); 
 	/* Enable and set EXTI Interrupt to second to lowest, this is the CTS from the SP1ML SPIRIT1 module */
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;	//The CTS triggered interrupt	
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;//Lower pre-emption priority
@@ -90,7 +90,7 @@ void ISR_Config(void) {
 void EXTI_ONOFF_EN(void) {
 	EXTI_InitTypeDef   EXTI_InitStructure;
 	NVIC_InitTypeDef   NVIC_InitStructure;
-	EXTI_DeInit();
+	//EXTI_DeInit();
 	/* Connect EXTI0 Line to PA.0 pin - WKUP*/
 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOA, GPIO_PinSource0);
 

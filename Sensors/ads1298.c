@@ -91,6 +91,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;//Lower pre-emption priority
 	NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel4_IRQn;//The DMA complete/half complete triggered interrupt	
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x04;	//4th subpriority
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
 	NVIC_Init(&NVIC_InitStructure);
 	NVIC_InitStructure.NVIC_IRQChannel = DMA1_Channel5_IRQn;//The DMA complete/half complete triggered interrupt	
 	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x03;	//3rd subpriority
