@@ -76,7 +76,7 @@ int main(void)
 	Usarts_Init();
 	ISR_Config();
 	rprintfInit(__usart_send_char);			//Printf over the bluetooth
-	if(USB_SOURCE==bootsource && false) {
+	if(USB_SOURCE==bootsource) {
 		Set_System();				//This actually just inits the storage layer
 		Set_USBClock();
 		USB_Interrupts_Config();

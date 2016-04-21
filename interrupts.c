@@ -204,7 +204,7 @@ __attribute__((externally_visible)) void SysTick_Handler(void)
 	Millis+=10;
 	if(ADC_GetFlagStatus(ADC2, ADC_FLAG_JEOC)) {		//We have adc2 converted data from the injected channels
 		ADC_ClearFlag(ADC2, ADC_FLAG_JEOC);		//Clear the flag
-		Battery_Voltage=((float)ADC_GetInjectedConversionValue(ADC2, (USB_SOURCE==bootsource?ADC_InjectedChannel_1:ADC_InjectedChannel_2)))/(SAMPLING_FACTOR);
+		Battery_Voltage=((float)ADC_GetInjectedConversionValue(ADC2,ADC_InjectedChannel_1)/(SAMPLING_FACTOR));
 	}
 	ADC_SoftwareStartInjectedConvCmd(ADC2, ENABLE);		//Trigger the injected channel group
 	//Now process the control button functions
