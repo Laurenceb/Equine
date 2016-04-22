@@ -34,14 +34,14 @@ void handle_lsm9ds1(void) {
 	static uint16_t copy_acc[3];
 	if(Completed_Jobs&(0x00000001<<LSM9DS1_MAGNO)) {//The last of the read jobs has been completed
 		Completed_Jobs&=~((1<<LSM9DS1_GYRO)|(1<<LSM9DS1_ACC)|(1<<LSM9DS1_MAGNO));//wipe the relevant bits
-		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.x),&IMU_buff[0]);
-		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.y),&IMU_buff[1]);
-		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.z),&IMU_buff[2]);
+		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.x),&(IMU_buff[0]));
+		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.y),&(IMU_buff[1]));
+		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.z),&(IMU_buff[2]));
 		for(uint8_t n=0; n<3; n++)
-			Add_To_Buffer(&(LSM9DS1_Acc_Buffer[n]),&IMU_buff[3+n]);
+			Add_To_Buffer(&(LSM9DS1_Acc_Buffer[n]),&(IMU_buff[3+n]));
 		for(uint8_t n=0; n<3; n++)
-			Add_To_Buffer(&(LSM9DS1_Mag_Buffer[n]),&IMU_buff[6+n]);
-		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.temp),&IMU_buff[9]);
+			Add_To_Buffer(&(LSM9DS1_Mag_Buffer[n]),&(IMU_buff[6+n]));
+		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.temp),&(IMU_buff[9]));
 	}
 	if(!GET_LSM9DS1_DTRD) {			//If there is some new data (otherwise we load anyway so it gets padded)
 		if((Completed_Jobs&CONFIG_SENSORS)==CONFIG_SENSORS) {//Only schedule new reads if sensors are present and running

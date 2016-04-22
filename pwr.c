@@ -47,11 +47,12 @@ void shutdown_filesystem(uint8_t reason, uint8_t file_flags) {
 		if(f_tell(&FATFS_wavfile_imu)>2)	//There is some data in the file
 			wave_terminate(&FATFS_wavfile_imu);
 	}
-	uint8_t path[22]={};
-	f_getcwd(path,22);				/* Find the directory name */
+	uint8_t path[37]={};
+	f_getcwd(path,37);				/* Find the directory name */
 	DIR dir;
-	FRESULT res = f_opendir(&dir, path);		/* Open the directory */
+	FRESULT res = f_opendir(&dir, (TCHAR*)path);		/* Open the directory */
 	FILINFO fno;
+	fno.lfname=path;				/* Reuse this as the file name buffer */
 	char* fn;
 	if (res == FR_OK) {
 		for (;;) {

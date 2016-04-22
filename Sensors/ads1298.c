@@ -104,7 +104,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	}
 
 	//Note that config is setup to use the AC lead off detect with 10M resistors (AC Current not supported) and mirroring on every other channel
-	uint8_t header[17]={0x06,0x00,0xDC,0x5D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,config->enable_mask,0x00,config->enable_mask,0x00,flipmask};//Note that some of these settings are reset using the config struct
+	uint8_t header[17]={0x46,0x00,0xDC,0x5D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,config->enable_mask,0x00,config->enable_mask,0x00,flipmask};//Note that some of these settings are reset using the config struct
 	Enable=config->enable_mask;// Copy into the global
 	for(uint8_t n=0; n<8; n++) {
 		Init_Buffer(&(ECG_buffers[n]), ADS1298_BUFFER, 4);//Initialise the data buffers (there are 8, lead-off is calculated later)

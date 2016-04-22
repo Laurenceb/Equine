@@ -389,12 +389,6 @@ int main(void)
 		if(Battery_Voltage<BATTERY_STARTUP_LIMIT)//Low battery warning flash, this overrules other flash codes
 			flashCode=FLASH_BATTERY;
 		if(pad_drop<=0) {			//We retrieve the data from the high rate buffers (8 ADS buffers followed by 10 LSM)
-			if(pad_drop<0) {		//We run an extra read
-				for(uint8_t n=0; n<8; n++)
-					Get_From_Buffer(&(raw_data_ecg[n]),&(ECG_buffers[n]));
-				for(uint8_t n=0; n<10; n++)
-					Get_From_Buffer(&(raw_data_imu[n]),&(IMU_buff[n]));
-			}
 			for(uint8_t n=0; n<8; n++) {	//Samples that will be used
 				Get_From_Buffer(&(raw_data_ecg[n]),&(ECG_buffers[n]));//Compress the error codes and saturation handling into 24 bits
 				if((raw_data_ecg[n]>0) && (raw_data_ecg[n]&(1<<24)))//If there is an error code, the 25th bit is set
@@ -402,10 +396,12 @@ int main(void)
 			}				//+ive limit == RLD, -ive limit == lead-off, -ive limit+1 == disabled
 			for(uint8_t n=0; n<10; n++)
 				Get_From_Buffer(&(raw_data_imu[n]),&(IMU_buff[n]));
-		}					//Otherwise we write the old data
+		}					//Otherwise we write the old data, or ignore completely
+		if(pad_drop>=0) {
+			write_wave_samples(&FATFS_wavfile, 8, 24, &(this_stuffer[0]), raw_data_ecg, 4);//Go through writing the samples to wav file
+			write_wave_samples(&FATFS_wavfile_imu, 10, 16, &(this_stuffer[1]), raw_data_imu, 2);
+		}
 		pad_drop=0;				//Wipe this here
-		write_wave_samples(&FATFS_wavfile, 8, 24, &(this_stuffer[0]), raw_data_ecg, 4);//Go through writing the samples to wav file
-		write_wave_samples(&FATFS_wavfile_imu, 10, 16, &(this_stuffer[1]), raw_data_imu, 2);
 		//Manage pre-allocation control of the wav files
 		if(file_opened&0x01)
 			f_err_code|=file_preallocation_control(&FATFS_wavfile);
