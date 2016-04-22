@@ -27,7 +27,7 @@ typedef struct{
 	int16_t x;
 	int16_t y;
 	int16_t z;
-}  __attribute__((packed)) gyro_data_type; 
+}  __attribute__ ((aligned (1))) __attribute__((packed)) gyro_data_type; 
 
 //The raw data buffers for the data
 extern volatile gyro_data_type LSM9DS1_Gyro_Buffer;

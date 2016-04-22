@@ -7,7 +7,7 @@ volatile int32_t Raw_ECG[8];
 
 //Globals used here
 static uint16_t dummywrite;
-static volatile uint8_t raw_data[28];
+static volatile uint8_t raw_data[29];
 static volatile uint8_t quality_mask,read_transaction;
 static volatile uint8_t rld_quality;	// RLD self test status
 static volatile uint8_t channel_wct_conf;
@@ -298,11 +298,12 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		if(RLD_replaced!=n) {		//This is disabled if the RLD is remapped to the current channel TODO check enable mask here
 			for(uint8_t m=0; m<3; m++)
 				databuffer[n][m]=databuffer[n][m+1];//Update the buffers, copy down from the higher array index
-			dat=*((uint32_t*)&(raw_data_[n*3+4]));//four byte offset due to the command byte + three status bytes
+			dat=*((uint32_t*)&(raw_data_[n*3+5]));//five byte offset due to the command byte + three status bytes + offset due to periph sync?
 			dat&=0x00ffffff;
 			dat|=(dat<<24);		//Flip the endianess
 			dat&=0xffffff00;
 			dat|=((dat&0x00ff0000)>>16);
+			dat&=0xff00ffff;
 			dat|=(dat&0xff000000)>>8;
 			dat&=0x00ffffff;
 			if(dat&0x800000)
@@ -331,7 +332,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		if(quality_mask&(1<<n)) {
 			dat=(uint32_t)(1<<24)+1;//Second special value for lead-off
 			if(!(Enable&(1<<n)))
-				dat++;		//A third special value for diabled channels
+				dat++;		//A third special value for disabled channels
 		}	
 		if(RLD_replaced==n)
 			dat=(uint32_t)(1<<24);	// The 25th bit is set if the channel has been repurposed for RLD
