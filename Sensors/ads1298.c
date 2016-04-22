@@ -298,7 +298,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		if(RLD_replaced!=n) {		//This is disabled if the RLD is remapped to the current channel TODO check enable mask here
 			for(uint8_t m=0; m<3; m++)
 				databuffer[n][m]=databuffer[n][m+1];//Update the buffers, copy down from the higher array index
-			dat=*((uint32_t*)&(raw_data_[n*3+1]));//One byte offset due to the command byte
+			dat=*((uint32_t*)&(raw_data_[n*3+4]));//four byte offset due to the command byte + three status bytes
 			dat&=0x00ffffff;
 			dat|=(dat<<24);		//Flip the endianess
 			dat&=0xffffff00;
