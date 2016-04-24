@@ -469,7 +469,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 				if(RLD_replaced!=8)
 					payload=(0x80|(Gain<<4))|0x06;//Turn on the RLD bypass
 				else
-					payload=0x80|(Gain<<4);//Turn off RLD bypass
+					payload=(Gain<<4);//Turn off RLD bypass
 				write=1;
 				bytes=1;
 			break;
