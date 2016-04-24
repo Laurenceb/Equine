@@ -14,6 +14,7 @@ typedef struct{
 uint8_t gain;
 uint8_t enable_mask;
 uint8_t channel_seven_neg;
+uint16_t cap;		//Holds estimated parasitic capacitance of the cable, used for compensating lead-off AC data
 uint8_t updated_flag;	//Used for flagging a pending update to the device
 } ADS_config_type;
 
