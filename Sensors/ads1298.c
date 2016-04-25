@@ -13,7 +13,7 @@ static volatile uint8_t rld_quality;	// RLD self test status
 static volatile uint8_t channel_wct_conf;
 static volatile uint8_t old_quality_mask,wct[2],old_wct[2];
 static volatile uint8_t lead_off_mask;	//Mask register setting used for enable/disable of the lead-off excitation (this uses the 10M ohm resistors)
-static uint8_t Gain,Enable;		//Gain setting used for the PGA, and mask of used channels, global copies
+static uint8_t Gain,Enable,Actual_gain,Cap;//Gain setting used for the PGA, and mask of used channels, global copies
 static uint16_t ads1298_transaction_queue;//This is used for managing runtime reconfiguration commands, they are prioritised using the queue and run at sample rate
 static filter_state_type_c ECG_filter_states[8];//Used for bandpass and notch filtering of the telemetry data
 
@@ -113,8 +113,11 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 		gain=(gain==6)?0:gain;				//Possible gain arguments are 1,2,3,4,6(mapped to zero),8(to 5),12(to 6)
 		gain=(gain>6)?6:gain;				//Maximum possible range of the gain
 		header[n+4]|=gain<<4;				//The gain setting starts at the 4th bit
-		if(n==7)
+		if(n==7) {
 			Gain=gain;				//Copy over into the global variable for future use
+			Actual_gain=config->gain;		//The actual gain value
+			Cap=config->cap;
+		}
 	}
 	//Enable the WCT amplifiers, and connects them to positive inputs 1,2,3 (or the appropriate ones)
 	ads1298_wct_config(wct, Enable&0x0F);
