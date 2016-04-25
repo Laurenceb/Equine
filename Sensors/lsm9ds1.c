@@ -17,7 +17,7 @@ volatile uint8_t I2C_failure;
   * @retval None
   */
 void configure_i2c_buffers(void) {
-	I2C1_Setup_Job(LSM9DS1_GYRO, (volatile uint8_t*)&LSM9DS1_Gyro_Buffer);
+	I2C1_Setup_Job(LSM9DS1_GYRO, &(((volatile uint8_t*)&LSM9DS1_Gyro_Buffer)[1]));//Offset by one byte to skip the dummy variable
 	I2C1_Setup_Job(LSM9DS1_ACC, (volatile uint8_t*)LSM9DS1_Acc_Buffer);
 	I2C1_Setup_Job(LSM9DS1_MAGNO, (volatile uint8_t*)LSM9DS1_Mag_Buffer);
 	for(uint8_t n=0; n<10; n++)	//Init the buffers to the main loop

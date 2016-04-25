@@ -22,6 +22,7 @@
 #define C_ADDR_MAG 0x20
 
 typedef struct{
+	uint8_t dummy;	/*Used to align the variables to 32bit word boundaries*/
 	int16_t temp;
 	uint8_t stat;
 	int16_t x;

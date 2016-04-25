@@ -344,9 +344,9 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		if(RLD_replaced!=n) {		// If the RLD is replaced, the low pass is not updated (as we don't really know how good the electrode is)
 			uint32_t quality=ads1298_electrode_quality(&databuffer[n][0]);//Calculate the quality
 			qualityfilter[n]+=(quality-(qualityfilter[n]>>5));// A low pass, approx 7Hz bandwidth
-			if(qualityfilter[n]>ADS1298_LEAD_LIMIT)	// There is too much AC from the lead off detect
-				quality_mask|=1<<(n-1);
-			else if(qualityfilter[n]<(ADS1298_LEAD_LIMIT-ADS1298_LEAD_HYSTERYSIS) && RLD_replaced!=n)//RLD replacement also marks electrodes as bad
+			if(qualityfilter[n]>ADS1298_LEAD_LIMIT(Cap,Actual_gain))// There is too much AC from the lead off detect
+				quality_mask|=1<<(n-1);//RLD replacement also marks electrodes as bad
+			else if(qualityfilter[n]<(ADS1298_LEAD_LIMIT(Cap,Actual_gain)-ADS1298_LEAD_HYSTERYSIS(Cap,Actual_gain)) && RLD_replaced!=n)
 				quality_mask&=~(1<<(n-1));//Clear or set the mask, set bit implies poor electrode
 			quality_mask|=~Enable;	//  Disabled channels added to the mask of inactive channels
 		}
@@ -380,7 +380,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	if(rld_quality) {			// The RLD electrode failed self test, it has to be remapped to the highest numbered working electrode 
 		ADS1298_Error_Status|=(1<<RLD_FAILURE);// Status shows the failure
 		if(RLD_replaced!=8)		// Replacement in operation
-			qualityfilter[RLD_replaced]=ADS1298_LEAD_LIMIT+1;// Replacement lead probably faulty if RLD failed, re-initialise the filter in failed state
+			qualityfilter[RLD_replaced]=ADS1298_LEAD_LIMIT(Cap,Actual_gain)+1;// Replacement lead probably faulty if RLD failed, re-initialise the filter in failed state
 		int8_t bestchoice=0;		// Reuse this variable to count spare channels, init as zero 
 		for(uint8_t n=0; n<8; n++)
 			bestchoice+=(~(quality_mask>>n)&0x01);// Count the number of usable channels (note that these exclude any current RLD remapped channel)
