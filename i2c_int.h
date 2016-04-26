@@ -26,6 +26,6 @@ extern volatile I2C_Error_Type I2C1error;	//used to store error state
 //Function prototypes
 void I2C1_Request_Job(uint8_t job_);//Requests a job
 void I2C1_Setup_Job(uint8_t job_, volatile uint8_t* data);//Sets up the data pointer for a job
-void I2C_Config(void);//configures the hardware
+void I2C_Config(uint8_t initbuff);//configures the hardware
 #define Flipbytes(x) x=(((uint16_t)x>>8)&0x00FF)|((((uint16_t)x&0x00FF)<<8)&0xFF00)
 #define Flipedbytes(x) (int16_t)(((x>>8)&0x00FF)|(((x&0x00FF)<<8)&0xFF00))

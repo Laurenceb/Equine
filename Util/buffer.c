@@ -59,7 +59,7 @@ int16_t Bytes_In_DMA_Buffer(volatile dma_buff_type* buffer)
 
 void Init_Buffer( buff_type* buff, uint16_t size, uint8_t blocksize) {
 	buff->data=(uint8_t*)malloc(size*blocksize);
-	buff->size=size*blocksize;
+	buff->size=size;
 	buff->block=blocksize;
 	buff->head=0;
 	buff->tail=0;

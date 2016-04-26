@@ -161,7 +161,7 @@ int main(void)
 		battery_voltage=Battery_Voltage;	//Have to flush adc for some reason
 		Delay(25000);
 	} while(fabs(Battery_Voltage-battery_voltage)>0.01 || !battery_voltage);
-	I2C_Config();					//Setup the I2C bus
+	I2C_Config(1);					//Setup the I2C bus
 	setup_pwm();					//Start clocking the ECG front end (we need to leave it running and clocked for ~0.2s at boot)
 	Sensors=detect_sensors();			//Search for connected sensors, probes the I2C for the IMU sensor and sets us and tests GPS and ADS1298
 	if(battery_voltage<BATTERY_STARTUP_LIMIT)	//detect_sensors sets up and self tests all the sensors, should have all 3 sensors present
@@ -359,6 +359,15 @@ int main(void)
 	int32_t raw_data_ecg[8]={};			//High rate data
 	int16_t raw_data_imu[10]={};
 	int16_t raw_data_gps[6]={};			//Low rate GPS data (converted into units suitable for wav)
+	//Syncronise to the GPS module at the start of the recording (if there is one present)
+	if(Sensors&(1<<UBLOXGPS)) {
+		Gps_DMA_Process();			//Processes all GPS data, this chuck everything that has accumulated in the buffer
+		Gps.packetflag=0;
+		do {
+			Gps_DMA_Process();
+		}while(Gps.packetflag!=REQUIRED_DATA);	//We are now syncronised to the datastream
+		Gps.packetflag=0;			//Allow fresh data to arrive
+	}
 	while(1) {
 		if(!GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_7))// Handle pin already low
 			EXTI_GenerateSWInterrupt(EXTI_Line7);

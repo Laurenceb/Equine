@@ -83,7 +83,7 @@ uint8_t check_lsm9ds1_functionality(void) {
 			while(Jobs && Millis<(repetition_counter+20))
 				__WFI();//Wait for any jobs to finish (with timeout)
 			Completed_Jobs=0;	//Ensure this is zeroed
-			I2C_Config();		//Setup the I2C bus
+			I2C_Config(0);		//Setup the I2C bus
 			SCHEDULE_CONFIG;	//Setup the sensors on the bus
 			while(Jobs && Millis<(repetition_counter+60))//Wait for the initial config jobs to complete, allow 60ms total
 				__WFI();

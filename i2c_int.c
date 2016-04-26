@@ -223,7 +223,7 @@ void I2C1_ER_IRQHandler(void) {
 					I2C1error.error|=0x80;
 					I2C1error.job=job;
 				}
-				I2C_Config();//reset and configure the hardware						
+				I2C_Config(0);//reset and configure the hardware						
 			}
 			else {
 				I2C_GenerateSTOP(I2C1,ENABLE);//stop to free up the bus
@@ -274,7 +274,7 @@ void I2C1_Setup_Job(uint8_t job_, volatile uint8_t* data) {
   * @param  None
   * @retval None
   */
-void I2C_Config() {			//Configure I2C1 for the sensor bus
+void I2C_Config(uint8_t initbuff) {		//Configure I2C1 for the sensor bus
 	I2C_InitTypeDef I2C_InitStructure;
 	I2C_InitStructure.I2C_Mode = I2C_Mode_I2C;
 	I2C_InitStructure.I2C_DutyCycle = I2C_DutyCycle_2;
@@ -283,7 +283,8 @@ void I2C_Config() {			//Configure I2C1 for the sensor bus
 	I2C_InitStructure.I2C_AcknowledgedAddress= I2C_AcknowledgedAddress_7bit;
 	I2C_InitStructure.I2C_ClockSpeed = 200000;
 	//Setup the pointers to the read data
-	configure_i2c_buffers();
+	if(initbuff)
+		configure_i2c_buffers();
 	//Assert the bus
 	GPIO_SetBits(GPIOB,I2C1_SDA|I2C1_SCL);//Set bus high, make sure GPIO in correct state to start with
 	GPIO_InitTypeDef	GPIO_InitStructure;

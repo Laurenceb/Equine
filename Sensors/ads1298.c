@@ -259,7 +259,7 @@ void ads1298_busy_wait_command(uint8_t command) {
 
 /**
   * @brief  This function handles WCT config, attempting to find an optimal configuration given the circumstances
-  * @param  Pointer to a bufer holding the two register values, mask bit of active channels
+  * @param  Pointer to a buffer holding the two register values, mask bit of active channels
   * @retval None
   */
 void ads1298_wct_config(uint8_t wct_regs[2], uint8_t mask) {
@@ -272,8 +272,8 @@ void ads1298_wct_config(uint8_t wct_regs[2], uint8_t mask) {
 		else
 			amp[n]<<=1;	//Double amp setting to jump over the negative inputs
 	}
-	wct_regs[0]=(amp[0]&0x07)|(amp[0]&0x10?0x00:0x08);
-	wct_regs[1]=((amp[1]&0x07)<<3)|(amp[2]&0x07)|(amp[1]&0x10?0x00:0x40)|(amp[2]&0x10?0x00:0x80);//Set the amplifiers to the appropriate channels and enable
+	wct_regs[0]=(amp[0]&0x07)|(amp[0]&0x08?0x00:0x08);//Disable/Enable WCTA amp as approriate
+	wct_regs[1]=((amp[1]&0x07)<<3)|(amp[2]&0x07)|(amp[1]&0x08?0x00:0x40)|(amp[2]&0x08?0x00:0x80);//Set the amplifiers to the appropriate channels and enable
 	wct_regs[0]|=channel_wct_conf;	//Set the channel connection bits using the global variable (this will only be configurable using the config file)
 	if(failure)			//Set the WCT warning and failure bits as appropriate dependent on which amplifiers are running
 		ADS1298_Error_Status|=(1<<WCT_SUBOPTIMAL);
@@ -292,7 +292,7 @@ void ads1298_wct_config(uint8_t wct_regs[2], uint8_t mask) {
   * @retval None
   */
 void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
-	static uint8_t rld_wct_bypass,config_4_reg,rld_sensep_reg,RLD_replaced=8,RLD_replaced_reg,ADS1298_Error_Status_local,LEDs,rld_sense;
+	static uint8_t rld_wct_bypass,config_4_reg=0x02,rld_sensep_reg,RLD_replaced=8,RLD_replaced_reg,ADS1298_Error_Status_local,LEDs,rld_sense;
 	static int32_t databuffer[8][4];	//Lead-off detect demodulation buffer
 	static uint32_t qualityfilter[8];	//Used to low pass filter the AC lead-off detect to avoid short upsets
 	static uint16_t wct_7N_correction,rld_replace_counter;	//This is used to digitally correct channel 7 so it is referenced to WCT rather than (WCTB+WCTC)/2
@@ -356,7 +356,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			ads1298_wct_config(wct,((~quality_mask)&Enable)&0x0F);// Generate a new WCT configuration, note that this function uses logic high == usable
 			if(*(uint16_t*)wct!=*(uint16_t*)old_wct) {// The WCT config was updated by the config lookup function
 				ads1298_transaction_queue|=(1<<WCT_REMAP);// Reconfig tasks are queued
-				if(!*(uint16_t*)wct) {// We also need to activate the RLD_TO_WCT bypass, if all 4 of the first 4 electrodes are disconnected
+				if(!(*(uint16_t*)wct & 0xFF0F) ) {// Also need to activate RLD_TO_WCT bypass, if all 4 of first 4 electrodes disconnected
 					rld_wct_bypass=1;
 					config_4_reg|=0x04;
 					ads1298_transaction_queue|=(1<<RLD_WCT_REMAP);
