@@ -175,16 +175,10 @@ uint8_t ads1298_gain(void) {
   * @retval Unsigned 32 bit integer giving squared demodulator output
   */
 uint32_t ads1298_electrode_quality(uint32_t buffer[4]) {
-	int32_t datacopy[4];
 	int32_t I,Q;
-	for(uint8_t n=0; n<4; n++) {
-		datacopy[n]=buffer[n];
-		if (datacopy[n] & 0x800000)
-			datacopy[n] |= 0xFF000000;
-	}
-	I=datacopy[0]-datacopy[1]-datacopy[2]+datacopy[3];
+	I=buffer[0]-buffer[1]-buffer[2]+buffer[3];
 	I>>=11;
-	Q=datacopy[0]+datacopy[1]-datacopy[2]-datacopy[3];
+	Q=buffer[0]+buffer[1]-buffer[2]-buffer[3];
 	Q>>=11;
 	return (I*I)+(Q*Q);
 } 
@@ -265,12 +259,12 @@ void ads1298_busy_wait_command(uint8_t command) {
 void ads1298_wct_config(uint8_t wct_regs[2], uint8_t mask) {
 	uint8_t amp[3]={},failure=0;	//Holds the channel that each amplifier is assigned to, and the number of amplifier allocation failures
 	for(uint8_t n=0;n<3;n++) {
-		for(amp[n]=0;!((1<<amp[n])&mask)&&(amp[n]<4);amp[n]++);
-		mask&=~(1<<amp[n]);
+		for(amp[n]=0;(!((1<<amp[n])&mask))&&(amp[n]<4);amp[n]++);
 		if(amp[n]==4)
 			failure++;	//Amplifier allocation failed
 		else
-			amp[n]<<=1;	//Double amp setting to jump over the negative inputs
+			mask&=~(1<<amp[n]);
+		amp[n]<<=1;		//Double amp setting to jump over the negative inputs
 	}
 	wct_regs[0]=(amp[0]&0x07)|(amp[0]&0x08?0x00:0x08);//Disable/Enable WCTA amp as approriate
 	wct_regs[1]=((amp[1]&0x07)<<3)|(amp[2]&0x07)|(amp[1]&0x08?0x00:0x40)|(amp[2]&0x08?0x00:0x80);//Set the amplifiers to the appropriate channels and enable
@@ -342,12 +336,12 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		Add_To_Buffer(&dat,&(buffers[n]));// Add the data to the buffer
 		Raw_ECG[n]=dat;			//Global allowing the raw data to be directly accessed
 		if(RLD_replaced!=n) {		// If the RLD is replaced, the low pass is not updated (as we don't really know how good the electrode is)
-			uint32_t quality=ads1298_electrode_quality(&databuffer[n][0]);//Calculate the quality
-			qualityfilter[n]+=(quality-(qualityfilter[n]>>5));// A low pass, approx 7Hz bandwidth
+			int32_t quality=ads1298_electrode_quality(&databuffer[n][0]);//Calculate the quality
+			qualityfilter[n]+=(quality-(int32_t)qualityfilter[n])>>5;// A low pass, approx 7Hz bandwidth
 			if(qualityfilter[n]>ADS1298_LEAD_LIMIT(Cap,Actual_gain))// There is too much AC from the lead off detect
-				quality_mask|=1<<(n-1);//RLD replacement also marks electrodes as bad
-			else if(qualityfilter[n]<(ADS1298_LEAD_LIMIT(Cap,Actual_gain)-ADS1298_LEAD_HYSTERYSIS(Cap,Actual_gain)) && RLD_replaced!=n)
-				quality_mask&=~(1<<(n-1));//Clear or set the mask, set bit implies poor electrode
+				quality_mask|=1<<n;//RLD replacement also marks electrodes as bad
+			else if(qualityfilter[n]<(ADS1298_LEAD_LIMIT(Cap,Actual_gain)-ADS1298_LEAD_HYSTERYSIS(Cap,Actual_gain)))
+				quality_mask&=~(1<<n);//Clear or set the mask, set bit implies poor electrode
 			quality_mask|=~Enable;	//  Disabled channels added to the mask of inactive channels
 		}
 	}
