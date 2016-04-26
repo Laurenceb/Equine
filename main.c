@@ -10,6 +10,7 @@
 #include "Util/rprintf.h"
 #include "Util/delay.h"
 #include "Util/rtc_correct.h"
+#include "Util/data_alignment.h"
 #include "Util/dcm_attitude.h"
 #include "usb_lib.h"
 #include "Util/USB/hw_config.h"
@@ -523,9 +524,9 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
 			data_gps[0]=(int16_t)((float)Gps_->latitude*latitude_factor);//These are in meter units
 			data_gps[1]=(int16_t)((float)Gps_->longitude*longitude_factor_from_lat);
 		}
-		data_gps[3]=(int16_t)(Gps_->mslaltitude/10);//Altitude is in cm
-		data_gps[4]=Gps_->vnorth;		//This happens whenever there is a fix
-		data_gps[5]=Gps_->veast;
+		data_gps[2]=(int16_t)(Gps_->mslaltitude/10);//Altitude is in cm
+		data_gps[3]=Gps_->vnorth;		//This happens whenever there is a fix
+		data_gps[4]=Gps_->veast;
 		if(!GPS_telem.flag) {			//Only do this if the global has been unlocked
 			if(!tel_state--) {		//Pack the telemetry into the telemetry struct, heading is the battery voltage on every third packet
 				uint16_t tmp_packer=getBatteryPercentage(Battery_Voltage);//The lower 7 bits are used for the percentage charged status
@@ -552,7 +553,7 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
 			GPS_telem.flag=1;		//Flag as new data arrived
 		}
 	}//Stuff in the number of sats (upper byte), the gps status code (lowest nibble), and the system status (second to lowest nibble). This always happens
-	data_gps[6]=(int16_t)(((uint16_t)Gps_->nosats)<<8|(uint16_t)((Gps_->status)&0x0f))|((system_state_&0x0f)<<4);
+	data_gps[5]=(int16_t)(((uint16_t)Gps_->nosats)<<8|(uint16_t)((Gps_->status)&0x0f))|((system_state_&0x0f)<<4);
 	return (3-Gps_->status);
 }
 
