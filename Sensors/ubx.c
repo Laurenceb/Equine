@@ -208,8 +208,8 @@ uint8_t Config_Gps(void) {
 	Empty_Dma_Buffer(&Gps_Buffer);		//Wipe the DMA buffer - it will have been overwritten with NMEA
 	Gps_Send_Utf8(usart_conf);
 	if(Get_UBX_Ack(usart_conf[3],usart_conf[4])) {
-		printf("Ack Error -Usart config\r\n");
-		/*return 1;*/}
+		/*printf("Ack Error -Usart config\r\n");
+		return 1;*/}
 	USART2_reconf(NEW_BAUD);
 	Delay(GPS_DELAY);
 	Gps_Send_Utf8(packets);

@@ -381,6 +381,8 @@ int main(void)
 		if(Gps.packetflag==REQUIRED_DATA) {	//GPS packet arrived, run GPS formatter below
 			uint8_t gps_code=process_gps_data(raw_data_gps,&Gps,system_state, rtc_correction);//puts GPS data into it's wav file buffer as int16_t data
 			Gps.packetflag=0;
+			system_state=0;			//Reset this - it is set inside main (250hz) loop
+
 			//GPS data and a copy of the battery voltage are packed into a global used by the telemetry packer in process_gps (read by sp1ml_command.c)
 			samples[0]++;			//Low rate sample arrived
 			pad_drop=aligndata(samples, 250/5);//250hz versus 5hz
@@ -424,7 +426,6 @@ int main(void)
 		SP1ML_manager(SerialNumber, &SP1ML_tx_rx_state);
 		//Other sensors etc can go here
 		//Button multipress status
-		system_state=0;				//Reset this - it is used earlier
 		if(System_state_Global&0x80) {		//A "control" button press
 			system_state|=System_state_Global&~0x80;//Copy to local variable
 			System_state_Global&=~0x80;	//Wipe the flag bit to show this has been processed

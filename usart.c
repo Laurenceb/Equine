@@ -55,7 +55,11 @@ void Usarts_Init() {
     // Configure USART1 peripheral
     USART_InitStructure.USART_BaudRate  = USART1_BAUD;
     Default_Usart_Config(&USART_InitStructure);
+    USART_InitStructure.USART_WordLength = USART_WordLength_9b;
+    USART_InitStructure.USART_Parity = USART_Parity_Even;
     USART_Init(USART1_USART, &USART_InitStructure );
+    USART_InitStructure.USART_Parity = USART_Parity_No;
+    USART_InitStructure.USART_WordLength = USART_WordLength_8b;
     // Configure USART2 peripheral - only buadrate is changed
     USART_InitStructure.USART_BaudRate = GPS_DEFAULT_BAUD;
     USART_Init(USART2_USART, &USART_InitStructure );

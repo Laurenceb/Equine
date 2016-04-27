@@ -127,7 +127,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	//Enable the WCT amplifiers, and connects them to positive inputs 1,2,3 (or the appropriate ones)
 	ads1298_wct_config(wct, Enable&0x0F);
 	wct[0]|=config->channel_seven_neg?0x00:0x20;		//Connects the channel 7 negative input to (WCTB+WCTC)/2 (note inverted level, normally N7=WCT)
-	channel_wct_conf=wct[0]|0xF0;				//Global used for reference if the WCT config is changed
+	channel_wct_conf=wct[0]&0xF0;				//Global used for reference if the WCT config is changed
 	memcpy(old_wct,wct,2);
 	/* Send the SDATAC command, it is unclear if this is essential on POR */
 	ads1298_busy_wait_command(ADS1298_SDATAC);
@@ -310,7 +310,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			if(dat&0x800000)
 				dat|=0xFF000000;//Sign extend to a 32bit signed integer or int32_t
 			databuffer[n][3]=(int32_t)dat;//Load the latest data into the history buffer
-			if((n==6) && (channel_wct_conf&0x20)) {//If the channel 7 (i.e. n==6) input is connected to WCTB/C mean
+			if((n==6) && (channel_wct_conf&0x20) && (!rld_wct_bypass)) {//If the channel 7 (i.e. n==6) input is connected to WCTB/C mean
 				if(!(ads1298_transaction_queue&(1<<WCT_REMAP)))//There is no WCT reconfiguration job still outstanding, update the status
 					memcpy(&wct_7N_correction,wct,2);//We can now use the uint16_t, operating under the assumption it is in effect on ADS1298
 				uint16_t flags=wct_7N_correction&0xC080;//Check the amplifier enable flags
@@ -326,7 +326,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 					dat+=-databuffer[n][chans[0]]/12-databuffer[n][chans[1]]/3+5*databuffer[n][chans[2]]/12;
 				databuffer[n][3]=(int32_t)dat;//Load the latest data (again). Don't need to correct the range here as still in 32bit range
 			}
-			if(abs(dat)>=(1<<23)-1)//enforce range lim on dat value (so range checking can be used for lead-off and RLD identification)
+			if(abs(*(int32_t*)&dat)>=((1<<23)-1))//enforce range lim on dat value (so range checking can be used in lead-off & RLD id)
 				dat=((*(int32_t*)&dat)<0)?-((int32_t)(1<<23)-2):((int32_t)(1<<23)-2);
 		}
 		//Disabled channels, and also channels that are masked as disconnected or used as a replacement RLD are zeroed
