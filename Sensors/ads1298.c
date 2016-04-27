@@ -16,6 +16,7 @@ static volatile uint8_t lead_off_mask;	//Mask register setting used for enable/d
 static uint8_t Gain,Enable,Actual_gain,Cap;//Gain setting used for the PGA, and mask of used channels, global copies
 static uint16_t ads1298_transaction_queue;//This is used for managing runtime reconfiguration commands, they are prioritised using the queue and run at sample rate
 static filter_state_type_c ECG_filter_states[8];//Used for bandpass and notch filtering of the telemetry data
+static uint32_t qualityfilter[8];	//Used to low pass filter the AC lead-off detect to avoid short upsets
 
 //Shared Globals
 buff_type ECG_buffers[8];		//Only 8 buffers, the lead-off is calculated using demodulation
@@ -119,6 +120,10 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 			Cap=config->cap;
 		}
 	}
+	//Enable with all channels marked as bad and the channel quality filter initialised as above the limit
+	quality_mask=0xff;
+	for(uint8_t n=0;n<8;n++)
+		qualityfilter[n]=ADS1298_LEAD_LIMIT(Cap,Actual_gain)+1;
 	//Enable the WCT amplifiers, and connects them to positive inputs 1,2,3 (or the appropriate ones)
 	ads1298_wct_config(wct, Enable&0x0F);
 	wct[0]|=config->channel_seven_neg?0x00:0x20;		//Connects the channel 7 negative input to (WCTB+WCTC)/2 (note inverted level, normally N7=WCT)
@@ -288,14 +293,13 @@ void ads1298_wct_config(uint8_t wct_regs[2], uint8_t mask) {
 void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	static uint8_t rld_wct_bypass,config_4_reg=0x02,rld_sensep_reg,RLD_replaced=8,RLD_replaced_reg,ADS1298_Error_Status_local,LEDs,rld_sense;
 	static int32_t databuffer[8][4];	//Lead-off detect demodulation buffer
-	static uint32_t qualityfilter[8];	//Used to low pass filter the AC lead-off detect to avoid short upsets
 	static uint16_t wct_7N_correction,rld_replace_counter;	//This is used to digitally correct channel 7 so it is referenced to WCT rather than (WCTB+WCTC)/2
 	for(uint8_t n=0;n<8;n++) {		//Loop through the 8 channels
 		uint32_t dat;
 		if(RLD_replaced!=n) {		//This is disabled if the RLD is remapped to the current channel TODO check enable mask here
 			for(uint8_t m=0; m<3; m++)
 				databuffer[n][m]=databuffer[n][m+1];//Update the buffers, copy down from the higher array index
-			dat=*((uint32_t*)&(raw_data_[n*3+5]));//five byte offset due to the command byte + three status bytes + offset due to periph sync?
+			dat=*((uint32_t*)&(raw_data_[n*3+5]));//five byte offset due to the command byte + three status bytes + (no) periph sync offset?
 			dat&=0x00ffffff;
 			dat|=(dat<<24);		//Flip the endianess
 			dat&=0xffffff00;
@@ -320,10 +324,10 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 					dat+=-databuffer[n][chans[0]]/12+5*databuffer[n][chans[1]]/12-databuffer[n][chans[2]]/3;
 				else if(flags==0x8080)//amp b is off, all other cases do not need to have a correction applied to them
 					dat+=-databuffer[n][chans[0]]/12-databuffer[n][chans[1]]/3+5*databuffer[n][chans[2]]/12;
-				if(abs(dat)>=(1<<23))//enforce range limits on corrected dat value (so range checking can be used for lead-off and RLD identification)
-					dat=((*(int32_t*)&dat)<0)?-((int32_t)(1<<23)-2):((int32_t)(1<<23)-2);
-				databuffer[n][3]=(int32_t)dat;//Load the latest data (again)
+				databuffer[n][3]=(int32_t)dat;//Load the latest data (again). Don't need to correct the range here as still in 32bit range
 			}
+			if(abs(dat)>=(1<<23)-1)//enforce range lim on dat value (so range checking can be used for lead-off and RLD identification)
+				dat=((*(int32_t*)&dat)<0)?-((int32_t)(1<<23)-2):((int32_t)(1<<23)-2);
 		}
 		//Disabled channels, and also channels that are masked as disconnected or used as a replacement RLD are zeroed
 		if(quality_mask&(1<<n)) {
@@ -423,7 +427,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		uint8_t thistask=0;
 		uint8_t sendbuffer[4];		//Bytes to send to the ADS1298
 		uint8_t register_num,payload=0,write=0,bytes;
-		for(;!(ads1298_transaction_queue&1<<thistask);thistask++);// Find the first set bit
+		for(;!(ads1298_transaction_queue&(1<<thistask));thistask++);// Find the first set bit
 		switch(thistask) {
 			case RLD_OFF:
 				register_num=0x03;
@@ -545,6 +549,7 @@ void ads1298_spi_dma_transaction(uint8_t bytes_sent, uint8_t* tx_pointer, uint8_
 	DMA_ClearFlag(DMA1_FLAG_TC4|DMA1_FLAG_HT4|DMA1_FLAG_TE4);  /* Make sure flags are clear */
 	DMA_ITConfig(DMA1_Channel4, DMA_IT_TC, ENABLE);		/* Interrupt on complete */
 	NSEL_LOW;						/* Enable the ADS1298*/
+	SPI_I2S_ReceiveData(SPI2);				/* Ensure that the Rx registers is empty */
 	/* Enable DMA RX Channel */
 	DMA_Cmd(DMA1_Channel4, ENABLE);
 	/* Enable DMA TX Channel */
@@ -588,12 +593,13 @@ void handle_aligned_sensors(void){
   */
 __attribute__((externally_visible)) void DMA1_Channel4_IRQHandler(void) {
 	if (DMA_GetITStatus(DMA1_IT_TC4)) {
-		int16_t t_exit=(SysTick->VAL-18);		/* Systick timer value at timeout */
-		if(t_exit<0) t_exit+=SysTick->LOAD;		/* Wrap around */
 		uint16_t t_entry=SysTick->VAL;
+		int16_t t_exit=(t_entry-18);			/* Systick timer value at timeout */
+		if(t_exit<0) t_exit+=SysTick->LOAD;		/* Wrap around */
 		DMA_ClearFlag(DMA1_FLAG_TC4|DMA1_FLAG_HT4);  	/* make sure all flags are clear */
 		DMA_ClearFlag(DMA1_FLAG_TC5|DMA1_FLAG_HT5);  	/* make sure tx flags cleared here too */
 		DMA_ClearITPendingBit(DMA1_IT_GL4);
+		uint8_t read_transaction_=read_transaction;	/* save this for later reference */
 		if(read_transaction) {				/* this callback is the result of a read request */
 			read_transaction=0;			/* read no longer in progress */
 			ads1298_handle_data_arrived(raw_data,ECG_buffers);/* this function adds the data to the 9 buffers */
@@ -606,7 +612,7 @@ __attribute__((externally_visible)) void DMA1_Channel4_IRQHandler(void) {
 			if(thistask==RLD_STAT)			/* we just retreived the RLD_STAT self test result */
 				rld_quality=raw_data[2]&0x01;	/* the first read byte (after header) is the RLD register */
 		}
-		if((!read_transaction) || (!ads1298_transaction_queue)) {/* there is nothing ongoing, shut down. Note otherwise we don't reset with NSEL */
+		if((!read_transaction_) || (!ads1298_transaction_queue)) {/* nothing ongoing, shut down. Note otherwise we don't reset with NSEL */
 			if(t_entry>t_exit)
 				while(SysTick->VAL>t_exit && SysTick->VAL<t_entry);/* wait for 4 ADS1298 clocks (assumes ADS1298 is at f_cpu/36) */
 			else
