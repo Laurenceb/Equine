@@ -397,16 +397,16 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	}
 	else					// RLD passed self-test, remove the error flag
 		ADS1298_Error_Status&=~(1<<RLD_FAILURE);
-	if(RLD_replaced!=8) {	// RLD replacement is in operation on one of the channels, periodically turn it off to allow for RLD lead reconnect (if not testing)
-		if(++rld_replace_counter>=ADS1298_RLD_TEST_ITERATIONS && !(ads1298_transaction_queue&((1<<RLD_OFF)|(1<<RLD_STAT)))) {// Incriment the counter
+	if(RLD_replaced!=8 && !rld_quality) {	// RLD replacement is in operation on one of the channels, periodically turn it off to allow for RLD lead reconnect (if not testing)
+		if(++rld_replace_counter>=ADS1298_RLD_TEST_ITERATIONS && !( ads1298_transaction_queue&((1<<RLD_ON)-1) ) ) {// Incriment the counter
 			rld_replace_counter=0;	// Reset the counter to zero (^ note that this can only happen once any RLD measure operations have completed)
 			quality_mask&=~(1<<RLD_replaced);// Reset the quality mask bit for this channel to mark it as usable
 			RLD_replaced_reg=RLD_replaced;// The old register needs to be fixed
 			RLD_replaced=8;		// Force the RLD back to normal
 			ads1298_transaction_queue|=(1<<RLD_REPLACE);// Task into the queue. If the RLD still isnt functional it will be detected 
-			lead_off_mask=Enable;	// Enable the channel
+			lead_off_mask=Enable;	// Enable the channel's lead-off
 			ads1298_transaction_queue|=(1<<LEAD_OFF_REPLACE);// The lead-off sense register also needs to be updated to allow lead-off detect
-			rld_sense=ADS1298_RLD_ITERATIONS-2;// Run an detection immediatly afterwards
+			rld_sense=ADS1298_RLD_ITERATIONS-3;// Run an detection immediatly afterwards
 		}
 	}
 	if((++rld_sense>=ADS1298_RLD_ITERATIONS)&&(!ads1298_transaction_queue)) {// Periodically the RLD electrode configuration is tested, when all jobs completed ok
