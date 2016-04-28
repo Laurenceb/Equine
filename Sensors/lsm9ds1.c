@@ -41,6 +41,7 @@ void handle_lsm9ds1(void) {
 			Add_To_Buffer(&(LSM9DS1_Acc_Buffer[n]),&(IMU_buff[3+n]));
 		for(uint8_t n=0; n<3; n++)
 			Add_To_Buffer(&(LSM9DS1_Mag_Buffer[n]),&(IMU_buff[6+n]));
+		LSM9DS1_Gyro_Buffer.temp=25+(LSM9DS1_Gyro_Buffer.temp>>8);// In centigrade (actual sensor res seems to be 1C)
 		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.temp),&(IMU_buff[9]));
 	}
 	if(!GET_LSM9DS1_DTRD) {			//If there is some new data (otherwise we load anyway so it gets padded)

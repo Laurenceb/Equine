@@ -67,7 +67,7 @@ extern volatile uint8_t ADS1298_Error_Status;
 #define NSEL_HIGH GPIO_WriteBit(GPIOB,GPIO_Pin_0,Bit_SET)
 
 //List of online reconfiguration tasks, these use a priority queue, highest priority has the lowest number
-enum{RLD_OFF=0,RLD_STAT,RLD_ON,RLD_REMAP,WCT_REMAP,RLD_WCT_REMAP,RLD_UNMAP,RLD_REPLACE,LEAD_OFF_REPLACE,GPIO_UPDATE};
+enum{RLD_OFF=0,RLD_DISCONNECT,RLD_STAT,RLD_RECONNECT,RLD_ON,RLD_REMAP,WCT_REMAP,RLD_WCT_REMAP,RLD_UNMAP,RLD_REPLACE,LEAD_OFF_REPLACE,GPIO_UPDATE};
 //List of failure case enumerations, these can be used to flash an LED from the main thread, but preferably only if the electrode config is really screwed
 enum{RLD_FAILURE=0,RLD_REMAPPED,WCT_FAILURE,WCT_SUBOPTIMAL};/*RLD failure means RLD had to be remapped, WCT suboptimal means <3 amps, WCT failure means bypass*/
 

@@ -315,9 +315,9 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 					memcpy(&wct_7N_correction,wct,2);//We can now use the uint16_t, operating under the assumption it is in effect on ADS1298
 				uint16_t flags=wct_7N_correction&0xC080;//Check the amplifier enable flags
 				uint8_t chans[3];
-				chans[0]=(flags&0x0007)>>1;//The lead inputs that WCT amplifiers a,b, and c are connected to
-				chans[1]=(flags&0x3800)>>(4+8);
-				chans[2]=(flags&0x0700)>>(1+8);
+				chans[0]=(wct_7N_correction&0x0007)>>1;//The lead inputs that WCT amplifiers a,b, and c are connected to
+				chans[1]=(wct_7N_correction&0x3800)>>(4+8);
+				chans[2]=(wct_7N_correction&0x0700)>>(1+8);
 				if(flags==0xC080) //All amplifiers running
 					dat+=-databuffer[n][chans[0]]/3+databuffer[n][chans[1]]/6+databuffer[n][chans[2]]/6;//-a/3+b/6+c/6
 				else if(flags==0x4080)//amp c is off
@@ -382,7 +382,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		int8_t bestchoice=0;		// Reuse this variable to count spare channels, init as zero 
 		for(uint8_t n=0; n<8; n++)
 			bestchoice+=(~(quality_mask>>n)&0x01);// Count the number of usable channels (note that these exclude any current RLD remapped channel)
-		if(bestchoice>=3) {		// Need at least two remaining electrdes after the RLD remap is applied
+		if(bestchoice>=3) {		// Need at least two remaining electrodes after the RLD remap is applied
 			bestchoice=7;		// We start with the highest numbered channel as an option
 			for(;(bestchoice>=0)&&(quality_mask&(1<<bestchoice));bestchoice--);//bestchoice is the channel we have to use, exiting with -ive -> impossible
 			if(bestchoice>=0) {	// If there is a possible remap option (if there isn't, bestchoice will be zero)
@@ -411,7 +411,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	}
 	if((++rld_sense>=ADS1298_RLD_ITERATIONS)&&(!ads1298_transaction_queue)) {// Periodically the RLD electrode configuration is tested, when all jobs completed ok
 		rld_sense=0;
-		ads1298_transaction_queue|=(1<<RLD_OFF)|(1<<RLD_STAT)|(1<<RLD_ON);//The RLD status sensing jobs
+		ads1298_transaction_queue|=(1<<RLD_OFF)|(1<<RLD_DISCONNECT)|(1<<RLD_STAT)|(1<<RLD_RECONNECT)|(1<<RLD_ON);//The RLD status sensing jobs
 	}
 	#ifdef ECG_LEDS
 	if(ADS1298_Error_Status!=ADS1298_Error_Status_local) {//Update the LEDs
@@ -435,9 +435,21 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 				write=1;
 				bytes=1;
 			break;
+			case RLD_DISCONNECT:
+				register_num=0x0D;
+				payload=0x00;	//Disable the RLD inputs to avoid parasitic currents flowing
+				write=1;
+				bytes=1;
+			break;
 			case RLD_STAT:
 				register_num=0x03;
 				write=0;
+				bytes=1;
+			break;
+			case RLD_RECONNECT:
+				register_num=0x0D;
+				payload=rld_sensep_reg;	//Enable the RLD inputs again
+				write=1;
 				bytes=1;
 			break;
 			case RLD_ON:
