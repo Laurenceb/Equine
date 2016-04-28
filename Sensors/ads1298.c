@@ -316,8 +316,8 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 				uint16_t flags=wct_7N_correction&0xC080;//Check the amplifier enable flags
 				uint8_t chans[3];
 				chans[0]=(flags&0x0007)>>1;//The lead inputs that WCT amplifiers a,b, and c are connected to
-				chans[1]=(flags&0x3800)>>4;
-				chans[2]=(flags&0x0700)>>1;
+				chans[1]=(flags&0x3800)>>(4+8);
+				chans[2]=(flags&0x0700)>>(1+8);
 				if(flags==0xC080) //All amplifiers running
 					dat+=-databuffer[n][chans[0]]/3+databuffer[n][chans[1]]/6+databuffer[n][chans[2]]/6;//-a/3+b/6+c/6
 				else if(flags==0x4080)//amp c is off
@@ -518,7 +518,7 @@ void ads1298_handle_data_read(uint8_t* r_data) {
 void ads1298_spi_dma_transaction(uint8_t bytes_sent, uint8_t* tx_pointer, uint8_t rx_bytes) {
 	static uint8_t sentdata[28];		/*This is usually all zero with the exception of the first byte*/
 	memcpy(sentdata,tx_pointer,bytes_sent); /*Copy data into the buffer*/
-	memset(&sentdata[bytes_sent],0,28-bytes_sent);/*Ensure that the trailing end is all zeros*/
+	memset(&(sentdata[bytes_sent]),0,28-bytes_sent);/*Ensure that the trailing end is all zeros*/
 	if(rx_bytes<bytes_sent)			/*Ensure sufficient DMA size to send the data*/
 		rx_bytes=bytes_sent;
 	DMA_InitTypeDef DMA_InitStructure;

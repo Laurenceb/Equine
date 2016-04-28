@@ -34,9 +34,6 @@ void handle_lsm9ds1(void) {
 	static uint16_t copy_acc[3];
 	if(Completed_Jobs&(0x00000001<<LSM9DS1_MAGNO)) {//The last of the read jobs has been completed
 		Completed_Jobs&=~((1<<LSM9DS1_GYRO)|(1<<LSM9DS1_ACC)|(1<<LSM9DS1_MAGNO));//wipe the relevant bits
-		Flipbytes(LSM9DS1_Gyro_Buffer.x);//endianess bug on LSM9DS1 Gyro x,y,z?
-		Flipbytes(LSM9DS1_Gyro_Buffer.y);
-		Flipbytes(LSM9DS1_Gyro_Buffer.z);
 		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.x),&(IMU_buff[0]));
 		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.y),&(IMU_buff[1]));
 		Add_To_Buffer(&(LSM9DS1_Gyro_Buffer.z),&(IMU_buff[2]));

@@ -9,17 +9,17 @@
 #define A_G_ADDR 0xD4
 #define M_ADDR 0x38
 
-//Register addresses for the data
+//Register addresses for the data, 8th bis are set
 
-#define G_DATA 0x15
-#define A_DATA 0x28
-#define M_DATA 0x28
+#define G_DATA 0x95
+#define A_DATA 0xA8
+#define M_DATA 0xA8
 
-//Register addresses for the configuration
+//Register addresses for the configuration, note that 8th bit is set to enable multibyte write with auto incriment
 #define C_ADDR_ONE 0x0D
 #define C_ADDR_TWO 0x10
 #define C_ADDR_THREE 0x20
-#define C_ADDR_MAG 0x20
+#define C_ADDR_MAG 0xA0
 
 typedef struct{
 	uint8_t dummy;	/*Used to align the variables to 32bit word boundaries*/

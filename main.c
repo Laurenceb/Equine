@@ -523,8 +523,9 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
 			data_gps[1]=(int16_t)((uint32_t)(long_>>16)&0x0000FFFF);
 		}
 		else {					//convert and send data as normal
-			data_gps[0]=(int16_t)((float)Gps_->latitude*latitude_factor);//These are in meter units
-			data_gps[1]=(int16_t)((float)Gps_->longitude*longitude_factor_from_lat);
+			data_gps[0]=(int16_t)((float)(Gps_->latitude-lat_)*latitude_factor);//These are in meter units
+			data_gps[1]=(int16_t)((float)(Gps_->longitude-long_)*longitude_factor_from_lat);
+			gps_state=0;			//state zero as we have good data at present time (this resets the gps loss timeout)
 		}
 		data_gps[2]=(int16_t)(Gps_->mslaltitude/10);//Altitude is in cm
 		data_gps[3]=Gps_->vnorth;		//This happens whenever there is a fix
