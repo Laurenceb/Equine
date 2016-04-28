@@ -607,7 +607,7 @@ __attribute__((externally_visible)) void DMA1_Channel4_IRQHandler(void) {
 		}
 		else {						/* otherwise it is the result of a queued task */
 			uint8_t thistask=0;
-			for(;!(ads1298_transaction_queue&1<<thistask);thistask++);
+			for(;!(ads1298_transaction_queue&(1<<thistask));thistask++);
 			ads1298_transaction_queue&=~(1<<thistask);/* wipe the lowest bit as this task is now complete */
 			if(thistask==RLD_STAT)			/* we just retreived the RLD_STAT self test result */
 				rld_quality=raw_data[2]&0x01;	/* the first read byte (after header) is the RLD register */
