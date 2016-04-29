@@ -513,7 +513,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		else
 			sendbuffer[0]=(register_num&0x1F)|0x20;
 		sendbuffer[1]=(bytes-1)&0x1F;
-		ads1298_spi_dma_transaction(sentbytes,sendbuffer,sentbytes);
+		/*ads1298_spi_dma_transaction(sentbytes,sendbuffer,sentbytes);*/
 	}
 }
 
