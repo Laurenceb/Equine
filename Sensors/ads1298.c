@@ -393,6 +393,8 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			for(;(bestchoice>=0)&&(quality_mask&(1<<bestchoice));bestchoice--);//bestchoice is the channel we have to use, exiting with -ive -> impossible
 			if(bestchoice>=0) {	// If there is a possible remap option (if there isn't, bestchoice will be negative)
 				RLD_replaced_reg_old=RLD_replaced;// An existing remap may need to be cancelled
+				if(RLD_replaced_reg_old!=8)
+					ads1298_transaction_queue|=(1<<RLD_REMOVE);
 				RLD_replaced=bestchoice;// Apply a new replacement
 				RLD_replaced_reg=RLD_replaced;// The register to be changed is the current reg
 				quality_mask|=(1<<RLD_replaced);// Mark new channel choice as failed, this will allow WCT config and RDT input config to be adjusted
@@ -420,7 +422,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	}
 	if((++rld_sense>=ADS1298_RLD_ITERATIONS)&&(!ads1298_transaction_queue)) {// Periodically the RLD electrode configuration is tested, when all jobs completed ok
 		rld_sense=0;
-		ads1298_transaction_queue|=(1<<RLD_OFF)/*|(1<<RLD_DISCONNECT)*/|(1<<RLD_STAT)|/*(1<<RLD_RECONNECT)|*/(1<<RLD_ON);//The RLD status sensing jobs
+		ads1298_transaction_queue|=(1<<RLD_OFF)|(1<<RLD_DISCONNECT)|(1<<RLD_STAT)|(1<<RLD_RECONNECT)|(1<<RLD_ON);//The RLD status sensing jobs
 	}
 	#ifdef ECG_LEDS
 	if(ADS1298_Error_Status!=ADS1298_Error_Status_local) {//Update the LEDs
@@ -434,45 +436,33 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	#endif
 	if(ads1298_transaction_queue) {		// There are queued tasks to complete
 		uint8_t thistask=0;
-		uint8_t sendbuffer[6];		//Bytes to send to the ADS1298, for some queue tasks we send two commands at once
-		uint8_t register_num,write=0,bytes;
+		uint8_t sendbuffer[4];		//Bytes to send to the ADS1298, (for some queue tasks we send two commands at once DOESNT WORK!!)
+		uint8_t register_num,write=0,bytes=1,sentbytes=3;
 		for(;!(ads1298_transaction_queue&(1<<thistask));thistask++);// Find the first set bit
 		switch(thistask) {
 			case RLD_OFF:
 				register_num=0x03;	
-				write=1;
-				bytes=4;
 				sendbuffer[2]=0xDA;//Disable the RLD amplifier and enable the sense comparitor
-				sendbuffer[3]=0x4D;//A second write to 0x0D
-				sendbuffer[4]=0x00;
-				sendbuffer[5]=0x00;//Disable the RLD inputs to avoid parasitic currents flowing
+				write=1;
 			break;
-			//case RLD_DISCONNECT:
-			//	register_num=0x0D;
-			//	payload=0x00;	//Disable the RLD inputs to avoid parasitic currents flowing
-			//	write=1;
-			//	bytes=1;
-			//break;
+			case RLD_DISCONNECT:
+				register_num=0x0D;
+				sendbuffer[2]=0x00;//Disable the RLD inputs to avoid parasitic currents flowing
+				write=1;
+			break;
 			case RLD_STAT:
 				register_num=0x03;
-				write=0;
-				bytes=1;
 				sendbuffer[2]=0;
 			break;
-			//case RLD_RECONNECT:
-			//	register_num=0x0D;
-			//	payload=rld_sensep_reg;	//Enable the RLD inputs again
-			//	write=1;
-			//	bytes=1;
-			//break;
+			case RLD_RECONNECT:
+				register_num=0x0D;
+				sendbuffer[2]=rld_sensep_reg;	//Enable the RLD inputs again
+				write=1;
+			break;
 			case RLD_ON:
 				register_num=0x03;
-				write=1;
-				bytes=4;
 				sendbuffer[2]=0xDC;//Enable RLD amplifier and disable sense
-				sendbuffer[3]=0x4D;//A second write to 0x0D
-				sendbuffer[4]=0x00;
-				sendbuffer[5]=rld_sensep_reg;//Enable the RLD inputs again
+				write=1;
 			break;
 			case WCT_REMAP:
 				register_num=0x18;
@@ -480,18 +470,17 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 				sendbuffer[3]=wct[1];
 				write=1;
 				bytes=2;
+				sentbytes=4;
 			break;
 			case RLD_WCT_REMAP:	//Connect or disconnect the WCT to RLD 
 				register_num=0x17;
 				sendbuffer[2]=config_4_reg;
 				write=1;
-				bytes=1;
 			break;
 			case RLD_REMAP:
 				register_num=0x0D;
 				sendbuffer[2]=rld_sensep_reg;//Copy the sensep register onto the ADS1298
 				write=1;
-				bytes=1;
 			break;
 			case RLD_REPLACE:	//Disable one of the channels, connecting its positive input to RLD (and negative to RLDREF)
 				register_num=RLD_replaced_reg+0x05;//The actual reg is offset by 5 from the channel number
@@ -500,27 +489,23 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 				else
 					sendbuffer[2]=(Gain<<4);//Turn off RLD bypass
 				write=1;
-				bytes=1;
-				if(RLD_replaced_reg_old!=8) {//Also need to disable an old remap
-					sendbuffer[3]=(RLD_replaced_reg_old+0x05)|0x40;
-					sendbuffer[4]=0x00;
-					sendbuffer[5]=(Gain<<4);//Turn off RLD bypass
-					RLD_replaced_reg_old=8;
-					bytes=4;
-				}
+			break;
+			case RLD_REMOVE:	//Used to turn off the RLD on a replacement channel when we move to a new replacement channel
+				register_num=(RLD_replaced_reg_old+0x05);
+				sendbuffer[2]=(Gain<<4);//Turn off RLD bypass
+				RLD_replaced_reg_old=8;
+				write=1;
 			break;
 			case LEAD_OFF_REPLACE:	//Turn off the lead-off on any channel that is being used as a RLD replacement, as it will interfere with RLD detect
 				register_num=0x0F;
 				sendbuffer[2]=lead_off_mask;
 				write=1;
-				bytes=1;
 			break;
 			#ifdef ECG_LEDS
 			case GPIO_UPDATE:
 				register_num=0x14;
 				sendbuffer[2]=LEDs;
 				write=1;
-				bytes=1;
 			#endif
 		}
 		if(write)			//ADS1298 write command followed by the data
@@ -528,7 +513,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		else
 			sendbuffer[0]=(register_num&0x1F)|0x20;
 		sendbuffer[1]=(bytes-1)&0x1F;
-		ads1298_spi_dma_transaction(bytes+2,sendbuffer,bytes+2);
+		ads1298_spi_dma_transaction(sentbytes,sendbuffer,sentbytes);
 	}
 }
 

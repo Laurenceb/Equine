@@ -28,7 +28,7 @@ extern buff_type ECG_buffers[8];
 extern volatile uint8_t ADS1298_Error_Status;
 
 //Lead-off limit, this corresponds to 71% of the ADC range being used by the AC lead off signal
-#define LEAD_LIM_(x,y) (48000UL/((x+200)*y)) /*This isn't a perfect approximation but should be within 10% or so*/ /*0x80000000*/
+#define LEAD_LIM_(x,y) (4800000UL/((x+200)*y)) /*This isn't a perfect approximation but should be within 10% or so*/ /*0x80000000*/ //TODO 00
 #define ADS1298_LEAD_LIMIT(x,y) (LEAD_LIM_(x,y)*LEAD_LIM_(x,y)) /*Actual limit defined relative to measured amplitude squared*/
 #define ADS1298_LEAD_HYSTERYSIS(x,y) (ADS1298_LEAD_LIMIT(x,y)>>2) /*0x40000000*/
 
@@ -72,7 +72,7 @@ extern volatile uint8_t ADS1298_Error_Status;
 #define NSEL_HIGH GPIO_WriteBit(GPIOB,GPIO_Pin_0,Bit_SET)
 
 //List of online reconfiguration tasks, these use a priority queue, highest priority has the lowest number
-enum{RLD_OFF=0/*,RLD_DISCONNECT*/,RLD_STAT/*,RLD_RECONNECT*/,RLD_ON,RLD_REMAP,WCT_REMAP,RLD_WCT_REMAP,RLD_UNMAP,RLD_REPLACE,LEAD_OFF_REPLACE,GPIO_UPDATE};
+enum{RLD_OFF=0,RLD_DISCONNECT,RLD_STAT,RLD_RECONNECT,RLD_ON,RLD_REMAP,WCT_REMAP,RLD_WCT_REMAP,RLD_UNMAP,RLD_REPLACE,RLD_REMOVE,LEAD_OFF_REPLACE,GPIO_UPDATE};
 //List of failure case enumerations, these can be used to flash an LED from the main thread, but preferably only if the electrode config is really screwed
 enum{RLD_FAILURE=0,RLD_REMAPPED,WCT_FAILURE,WCT_SUBOPTIMAL};/*RLD failure means RLD had to be remapped, WCT suboptimal means <3 amps, WCT failure means bypass*/
 
