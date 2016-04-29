@@ -155,6 +155,7 @@ int main(void)
 	ADS_conf.enable_mask=0xFF;			//Default is everything enabled
 	ADS_conf.channel_seven_neg=0;			//Normally connected to WCT rather than used
 	ADS_conf.gain=4;
+	ADS_conf.cap=200;				//Board capacitance
 	//Check to see if battery has enough charge to start
 	EXTI_ONOFF_EN();				//Enable the off interrupt - allow some time for debouncing
 	ADC_Configuration();				//At present this is purely here to detect low battery

@@ -86,7 +86,7 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 					state=0;
 				}
 				break;
-			case 4:
+			case 4: //The cable capacitance input. This is added to existing structure value
 				if((byte>=0x30) && (byte<=0x39)) {
 					cap*=10;//Move onto the next digit
 					cap=(byte-0x30);
@@ -94,7 +94,7 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 				}
 				else if(byte=='\n' || !br || counter>=2) {
 					if(counter && set_struct->cap!=cap) {
-						set_struct->cap=cap;
+						set_struct->cap+=cap;
 						set_struct->updated_flag|=(1<<3);
 					}
 					state=0;	

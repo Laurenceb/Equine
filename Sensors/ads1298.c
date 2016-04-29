@@ -292,7 +292,7 @@ void ads1298_wct_config(uint8_t wct_regs[2], uint8_t mask) {
   * @retval None
   */
 void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
-	static uint8_t rld_wct_bypass,config_4_reg=0x02,rld_sensep_reg,RLD_replaced=8,RLD_replaced_reg,ADS1298_Error_Status_local,LEDs,rld_sense;
+	static uint8_t rld_wct_bypass,config_4_reg=0x02,rld_sensep_reg,RLD_replaced=8,RLD_replaced_reg,RLD_replaced_reg_old=8,ADS1298_Error_Status_local,LEDs,rld_sense;
 	static int32_t databuffer[8][4];	//Lead-off detect demodulation buffer
 	static uint16_t wct_7N_correction,rld_replace_counter;	//This is used to digitally correct channel 7 so it is referenced to WCT rather than (WCTB+WCTC)/2
 	for(uint8_t n=0;n<8;n++) {		//Loop through the 8 channels
@@ -300,7 +300,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		if(RLD_replaced!=n) {		//This is disabled if the RLD is remapped to the current channel TODO check enable mask here
 			for(uint8_t m=0; m<3; m++)
 				databuffer[n][m]=databuffer[n][m+1];//Update the buffers, copy down from the higher array index
-			dat=*((uint32_t*)&(raw_data_[n*3+5]));//five byte offset due to the command byte + three status bytes + (no) periph sync offset?
+			dat=*((uint32_t*)&(raw_data_[n*3+4]));//five byte offset due to the command byte + three status bytes + (no) periph sync offset?
 			dat&=0x00ffffff;
 			dat|=(dat<<24);		//Flip the endianess
 			dat&=0xffffff00;
@@ -310,7 +310,6 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			dat&=0x00ffffff;
 			if(dat&0x800000)
 				dat|=0xFF000000;//Sign extend to a 32bit signed integer or int32_t
-			databuffer[n][3]=(int32_t)dat;//Load the latest data into the history buffer
 			if((n==6) && (channel_wct_conf&0x20) && (!rld_wct_bypass)) {//If the channel 7 (i.e. n==6) input is connected to WCTB/C mean
 				if(!(ads1298_transaction_queue&(1<<WCT_REMAP)))//There is no WCT reconfiguration job still outstanding, update the status
 					memcpy(&wct_7N_correction,wct,2);//We can now use the uint16_t, operating under the assumption it is in effect on ADS1298
@@ -325,8 +324,8 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 					dat+=-databuffer[n][chans[0]]/12+5*databuffer[n][chans[1]]/12-databuffer[n][chans[2]]/3;
 				else if(flags==0x8080)//amp b is off, all other cases do not need to have a correction applied to them
 					dat+=-databuffer[n][chans[0]]/12-databuffer[n][chans[1]]/3+5*databuffer[n][chans[2]]/12;
-				databuffer[n][3]=(int32_t)dat;//Load the latest data (again). Don't need to correct the range here as still in 32bit range
 			}
+			databuffer[n][3]=(int32_t)dat;//Load the latest data into the history buffer. Don't need to correct the range here as 32 bit
 			if(abs(*(int32_t*)&dat)>=((1<<23)-1))//enforce range lim on dat value (so range checking can be used in lead-off & RLD id)
 				dat=((*(int32_t*)&dat)<0)?-((int32_t)(1<<23)-2):((int32_t)(1<<23)-2);
 		}
@@ -344,11 +343,11 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			Int_complex_type quality=ads1298_electrode_quality(&(databuffer[n][0]));//Calculate the quality
 			qualityfilter_[n].I+=(quality.I-(int32_t)qualityfilter_[n].I)>>5;// A low pass, approx 7Hz bandwidth
 			qualityfilter_[n].Q+=(quality.Q-(int32_t)qualityfilter_[n].Q)>>5;
-			uint32_t q=qualityfilter_[n].I*qualityfilter_[n].I+qualityfilter_[n].Q*qualityfilter_[n].Q;
-			qualityfilter[n]+=(q-(int32_t)qualityfilter[n])>>5;//Secondary low pass filtering
-			if(q>ADS1298_LEAD_LIMIT(Cap,Actual_gain))// There is too much AC from the lead off detect
+			uint32_t q=(qualityfilter_[n].I*qualityfilter_[n].I)+(qualityfilter_[n].Q*qualityfilter_[n].Q);
+			qualityfilter[n]+=((int32_t)q-(int32_t)qualityfilter[n])>>5;//Secondary low pass filtering
+			if(qualityfilter[n]>ADS1298_LEAD_LIMIT(Cap,Actual_gain))// There is too much AC from the lead off detect
 				quality_mask|=1<<n;//RLD replacement also marks electrodes as bad
-			else if(q<(ADS1298_LEAD_LIMIT(Cap,Actual_gain)-ADS1298_LEAD_HYSTERYSIS(Cap,Actual_gain)))
+			else if(qualityfilter[n]<(ADS1298_LEAD_LIMIT(Cap,Actual_gain)-ADS1298_LEAD_HYSTERYSIS(Cap,Actual_gain)))
 				quality_mask&=~(1<<n);//Clear or set the mask, set bit implies poor electrode
 			quality_mask|=~Enable;	//  Disabled channels added to the mask of inactive channels
 		}
@@ -381,9 +380,10 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		ADS1298_Error_Status&=~(1<<RLD_REMAPPED);
 	if(rld_quality) {			// The RLD electrode failed self test, it has to be remapped to the highest numbered working electrode 
 		ADS1298_Error_Status|=(1<<RLD_FAILURE);// Status shows the failure
+		rld_quality=0;			// Wipe this - only need to deal with each failure once
 		if(RLD_replaced!=8) {		// Replacement in operation
 			qualityfilter[RLD_replaced]=ADS1298_LEAD_LIMIT(Cap,Actual_gain)+1;// Replacement lead probably faulty if RLD failed, re-initialise the filter in failed state
-
+			quality_mask|=(1<<RLD_replaced);// Mark channel as faulty
 		}
 		int8_t bestchoice=0;		// Reuse this variable to count spare channels, init as zero 
 		for(uint8_t n=0; n<8; n++)
@@ -391,7 +391,8 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		if(bestchoice>=3) {		// Need at least two remaining electrodes after the RLD remap is applied
 			bestchoice=7;		// We start with the highest numbered channel as an option
 			for(;(bestchoice>=0)&&(quality_mask&(1<<bestchoice));bestchoice--);//bestchoice is the channel we have to use, exiting with -ive -> impossible
-			if(bestchoice>=0) {	// If there is a possible remap option (if there isn't, bestchoice will be zero)
+			if(bestchoice>=0) {	// If there is a possible remap option (if there isn't, bestchoice will be negative)
+				RLD_replaced_reg_old=RLD_replaced;// An existing remap may need to be cancelled
 				RLD_replaced=bestchoice;// Apply a new replacement
 				RLD_replaced_reg=RLD_replaced;// The register to be changed is the current reg
 				quality_mask|=(1<<RLD_replaced);// Mark new channel choice as failed, this will allow WCT config and RDT input config to be adjusted
@@ -407,7 +408,9 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		if(++rld_replace_counter>=ADS1298_RLD_TEST_ITERATIONS && !( ads1298_transaction_queue&((1<<RLD_ON)-1) ) ) {// Incriment the counter
 			rld_replace_counter=0;	// Reset the counter to zero (^ note that this can only happen once any RLD measure operations have completed)
 			quality_mask&=~(1<<RLD_replaced);// Reset the quality mask bit for this channel to mark it as usable
+			qualityfilter[RLD_replaced]=0;// Reset the quality filter too
 			RLD_replaced_reg=RLD_replaced;// The old register needs to be fixed
+			RLD_replaced_reg_old=8;	// Ensure this is reset also
 			RLD_replaced=8;		// Force the RLD back to normal
 			ads1298_transaction_queue|=(1<<RLD_REPLACE);// Task into the queue. If the RLD still isnt functional it will be detected 
 			lead_off_mask=Enable;	// Enable the channel's lead-off
@@ -417,7 +420,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	}
 	if((++rld_sense>=ADS1298_RLD_ITERATIONS)&&(!ads1298_transaction_queue)) {// Periodically the RLD electrode configuration is tested, when all jobs completed ok
 		rld_sense=0;
-		ads1298_transaction_queue|=(1<<RLD_OFF)|(1<<RLD_DISCONNECT)|(1<<RLD_STAT)|(1<<RLD_RECONNECT)|(1<<RLD_ON);//The RLD status sensing jobs
+		ads1298_transaction_queue|=(1<<RLD_OFF)/*|(1<<RLD_DISCONNECT)*/|(1<<RLD_STAT)|/*(1<<RLD_RECONNECT)|*/(1<<RLD_ON);//The RLD status sensing jobs
 	}
 	#ifdef ECG_LEDS
 	if(ADS1298_Error_Status!=ADS1298_Error_Status_local) {//Update the LEDs
@@ -431,38 +434,45 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	#endif
 	if(ads1298_transaction_queue) {		// There are queued tasks to complete
 		uint8_t thistask=0;
-		uint8_t sendbuffer[4];		//Bytes to send to the ADS1298
-		uint8_t register_num,payload=0,write=0,bytes;
+		uint8_t sendbuffer[6];		//Bytes to send to the ADS1298, for some queue tasks we send two commands at once
+		uint8_t register_num,write=0,bytes;
 		for(;!(ads1298_transaction_queue&(1<<thistask));thistask++);// Find the first set bit
 		switch(thistask) {
 			case RLD_OFF:
-				register_num=0x03;
-				payload=0xDA;	//Disable the RLD amplifier and enable the sense comparitor
+				register_num=0x03;	
 				write=1;
-				bytes=1;
+				bytes=4;
+				sendbuffer[2]=0xDA;//Disable the RLD amplifier and enable the sense comparitor
+				sendbuffer[3]=0x4D;//A second write to 0x0D
+				sendbuffer[4]=0x00;
+				sendbuffer[5]=0x00;//Disable the RLD inputs to avoid parasitic currents flowing
 			break;
-			case RLD_DISCONNECT:
-				register_num=0x0D;
-				payload=0x00;	//Disable the RLD inputs to avoid parasitic currents flowing
-				write=1;
-				bytes=1;
-			break;
+			//case RLD_DISCONNECT:
+			//	register_num=0x0D;
+			//	payload=0x00;	//Disable the RLD inputs to avoid parasitic currents flowing
+			//	write=1;
+			//	bytes=1;
+			//break;
 			case RLD_STAT:
 				register_num=0x03;
 				write=0;
 				bytes=1;
+				sendbuffer[2]=0;
 			break;
-			case RLD_RECONNECT:
-				register_num=0x0D;
-				payload=rld_sensep_reg;	//Enable the RLD inputs again
-				write=1;
-				bytes=1;
-			break;
+			//case RLD_RECONNECT:
+			//	register_num=0x0D;
+			//	payload=rld_sensep_reg;	//Enable the RLD inputs again
+			//	write=1;
+			//	bytes=1;
+			//break;
 			case RLD_ON:
 				register_num=0x03;
-				payload=0xDC;	//Enable RLD amplifier and disable sense
 				write=1;
-				bytes=1;
+				bytes=4;
+				sendbuffer[2]=0xDC;//Enable RLD amplifier and disable sense
+				sendbuffer[3]=0x4D;//A second write to 0x0D
+				sendbuffer[4]=0x00;
+				sendbuffer[5]=rld_sensep_reg;//Enable the RLD inputs again
 			break;
 			case WCT_REMAP:
 				register_num=0x18;
@@ -473,35 +483,42 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			break;
 			case RLD_WCT_REMAP:	//Connect or disconnect the WCT to RLD 
 				register_num=0x17;
-				payload=config_4_reg;
+				sendbuffer[2]=config_4_reg;
 				write=1;
 				bytes=1;
 			break;
 			case RLD_REMAP:
 				register_num=0x0D;
-				payload=rld_sensep_reg;//Copy the sensep register onto the ADS1298
+				sendbuffer[2]=rld_sensep_reg;//Copy the sensep register onto the ADS1298
 				write=1;
 				bytes=1;
 			break;
 			case RLD_REPLACE:	//Disable one of the channels, connecting its positive input to RLD (and negative to RLDREF)
 				register_num=RLD_replaced_reg+0x05;//The actual reg is offset by 5 from the channel number
 				if(RLD_replaced!=8)
-					payload=(0x80|(Gain<<4))|0x06;//Turn on the RLD bypass
+					sendbuffer[2]=(0x80|(Gain<<4))|0x06;//Turn on the RLD bypass
 				else
-					payload=(Gain<<4);//Turn off RLD bypass
+					sendbuffer[2]=(Gain<<4);//Turn off RLD bypass
 				write=1;
 				bytes=1;
+				if(RLD_replaced_reg_old!=8) {//Also need to disable an old remap
+					sendbuffer[3]=(RLD_replaced_reg_old+0x05)|0x40;
+					sendbuffer[4]=0x00;
+					sendbuffer[5]=(Gain<<4);//Turn off RLD bypass
+					RLD_replaced_reg_old=8;
+					bytes=4;
+				}
 			break;
 			case LEAD_OFF_REPLACE:	//Turn off the lead-off on any channel that is being used as a RLD replacement, as it will interfere with RLD detect
 				register_num=0x0F;
-				payload=lead_off_mask;
+				sendbuffer[2]=lead_off_mask;
 				write=1;
 				bytes=1;
 			break;
 			#ifdef ECG_LEDS
 			case GPIO_UPDATE:
 				register_num=0x14;
-				payload=LEDs;
+				sendbuffer[2]=LEDs;
 				write=1;
 				bytes=1;
 			#endif
@@ -511,8 +528,6 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		else
 			sendbuffer[0]=(register_num&0x1F)|0x20;
 		sendbuffer[1]=(bytes-1)&0x1F;
-		if(bytes==1)
-			sendbuffer[2]=payload;
 		ads1298_spi_dma_transaction(bytes+2,sendbuffer,bytes+2);
 	}
 }
