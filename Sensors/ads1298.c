@@ -16,7 +16,8 @@ static volatile uint8_t lead_off_mask;	//Mask register setting used for enable/d
 static uint8_t Gain,Enable,Actual_gain,Cap;//Gain setting used for the PGA, and mask of used channels, global copies
 static uint16_t ads1298_transaction_queue;//This is used for managing runtime reconfiguration commands, they are prioritised using the queue and run at sample rate
 static filter_state_type_c ECG_filter_states[8];//Used for bandpass and notch filtering of the telemetry data
-static uint32_t qualityfilter[8];	//Used to low pass filter the AC lead-off detect to avoid short upsets
+static Int_complex_type qualityfilter_[8];//Used to low pass filter the AC lead-off detect to avoid short upsets
+static uint32_t qualityfilter[8];	//Used as a further step of low pass filtering on the I^2+Q^2 output
 
 //Shared Globals
 buff_type ECG_buffers[8];		//Only 8 buffers, the lead-off is calculated using demodulation
@@ -179,13 +180,13 @@ uint8_t ads1298_gain(void) {
   * @param  Pointer to 24 bit singed integer (32bit aligned) buffer of last 4 samples for a channel
   * @retval Unsigned 32 bit integer giving squared demodulator output
   */
-uint32_t ads1298_electrode_quality(uint32_t buffer[4]) {
-	int32_t I,Q;
-	I=buffer[0]-buffer[1]-buffer[2]+buffer[3];
-	I>>=11;
-	Q=buffer[0]+buffer[1]-buffer[2]-buffer[3];
-	Q>>=11;
-	return (I*I)+(Q*Q);
+Int_complex_type ads1298_electrode_quality(uint32_t buffer[4]) {
+	Int_complex_type r;
+	r.I=buffer[0]-buffer[1]-buffer[2]+buffer[3];
+	r.I>>=11;
+	r.Q=buffer[0]+buffer[1]-buffer[2]-buffer[3];
+	r.Q>>=11;
+	return r;
 } 
 
 /**
@@ -340,11 +341,14 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		Add_To_Buffer(&dat,&(buffers[n]));// Add the data to the buffer
 		Raw_ECG[n]=dat;			//Global allowing the raw data to be directly accessed
 		if(RLD_replaced!=n) {		// If the RLD is replaced, the low pass is not updated (as we don't really know how good the electrode is)
-			int32_t quality=ads1298_electrode_quality(&databuffer[n][0]);//Calculate the quality
-			qualityfilter[n]+=(quality-(int32_t)qualityfilter[n])>>5;// A low pass, approx 7Hz bandwidth
-			if(qualityfilter[n]>ADS1298_LEAD_LIMIT(Cap,Actual_gain))// There is too much AC from the lead off detect
+			Int_complex_type quality=ads1298_electrode_quality(&(databuffer[n][0]));//Calculate the quality
+			qualityfilter_[n].I+=(quality.I-(int32_t)qualityfilter_[n].I)>>5;// A low pass, approx 7Hz bandwidth
+			qualityfilter_[n].Q+=(quality.Q-(int32_t)qualityfilter_[n].Q)>>5;
+			uint32_t q=qualityfilter_[n].I*qualityfilter_[n].I+qualityfilter_[n].Q*qualityfilter_[n].Q;
+			qualityfilter[n]+=(q-(int32_t)qualityfilter[n])>>5;//Secondary low pass filtering
+			if(q>ADS1298_LEAD_LIMIT(Cap,Actual_gain))// There is too much AC from the lead off detect
 				quality_mask|=1<<n;//RLD replacement also marks electrodes as bad
-			else if(qualityfilter[n]<(ADS1298_LEAD_LIMIT(Cap,Actual_gain)-ADS1298_LEAD_HYSTERYSIS(Cap,Actual_gain)))
+			else if(q<(ADS1298_LEAD_LIMIT(Cap,Actual_gain)-ADS1298_LEAD_HYSTERYSIS(Cap,Actual_gain)))
 				quality_mask&=~(1<<n);//Clear or set the mask, set bit implies poor electrode
 			quality_mask|=~Enable;	//  Disabled channels added to the mask of inactive channels
 		}
@@ -377,8 +381,10 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		ADS1298_Error_Status&=~(1<<RLD_REMAPPED);
 	if(rld_quality) {			// The RLD electrode failed self test, it has to be remapped to the highest numbered working electrode 
 		ADS1298_Error_Status|=(1<<RLD_FAILURE);// Status shows the failure
-		if(RLD_replaced!=8)		// Replacement in operation
+		if(RLD_replaced!=8) {		// Replacement in operation
 			qualityfilter[RLD_replaced]=ADS1298_LEAD_LIMIT(Cap,Actual_gain)+1;// Replacement lead probably faulty if RLD failed, re-initialise the filter in failed state
+
+		}
 		int8_t bestchoice=0;		// Reuse this variable to count spare channels, init as zero 
 		for(uint8_t n=0; n<8; n++)
 			bestchoice+=(~(quality_mask>>n)&0x01);// Count the number of usable channels (note that these exclude any current RLD remapped channel)

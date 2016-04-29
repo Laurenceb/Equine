@@ -18,12 +18,17 @@ uint16_t cap;		//Holds estimated parasitic capacitance of the cable, used for co
 uint8_t updated_flag;	//Used for flagging a pending update to the device
 } ADS_config_type;
 
+typedef struct{
+int32_t I;
+int32_t Q;
+} Int_complex_type;
+
 //Globals used for interfacing
 extern buff_type ECG_buffers[8];
 extern volatile uint8_t ADS1298_Error_Status;
 
 //Lead-off limit, this corresponds to 71% of the ADC range being used by the AC lead off signal
-#define LEAD_LIM_(x,y) (48000UL/((x+200)*y)) /*This isn't a perfect approximation but should be within 10% or so*/ /*0x80000000*/
+#define LEAD_LIM_(x,y) (4800000UL/((x+200)*y)) /*This isn't a perfect approximation but should be within 10% or so*/ /*0x80000000*/ //TODO remove extra 00
 #define ADS1298_LEAD_LIMIT(x,y) (LEAD_LIM_(x,y)*LEAD_LIM_(x,y)) /*Actual limit defined relative to measured amplitude squared*/
 #define ADS1298_LEAD_HYSTERYSIS(x,y) (ADS1298_LEAD_LIMIT(x,y)>>2) /*0x40000000*/
 
@@ -84,7 +89,7 @@ void ads1298_busy_wait_command(uint8_t command);
 void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers);
 void ads1298_handle_data_read(uint8_t* r_data);
 void handle_aligned_sensors(void);
-uint32_t ads1298_electrode_quality(uint32_t buffer[4]);
+Int_complex_type ads1298_electrode_quality(uint32_t buffer[4]);
 void ads1298_wct_config(uint8_t wct_regs[2], uint8_t mask);
 void ads1298_spi_dma_transaction(uint8_t bytes_sent, uint8_t* tx_pointer, uint8_t rx_bytes);
 
