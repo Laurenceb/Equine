@@ -105,7 +105,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	}
 
 	//Note that config is setup to use the AC lead off detect with 10M resistors (AC Current not supported) and mirroring on every other channel
-	uint8_t header[17]={0x46,0x00,0xCC,0x5D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,config->enable_mask,0x00,config->enable_mask,0x00,flipmask};//Note that some of these settings are reset using the config struct
+	uint8_t __attribute__((__packed__)) header[17]={0x46,0x00,0xCC,0x5D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,config->enable_mask,0x00,config->enable_mask,0x00,flipmask};//Note that some of these settings are reset using the config struct
 	Enable=config->enable_mask;// Copy into the global
 	for(uint8_t n=0; n<8; n++) {
 		Init_Buffer(&(ECG_buffers[n]), ADS1298_BUFFER, 4);//Initialise the data buffers (there are 8, lead-off is calculated later)
@@ -142,7 +142,9 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	uint32_t m=Millis+180;
 	while(m>Millis)
 		__WFI();					//Wait for the reference startup time (+30ms)
-	ads1298_busy_wait_write(17, 0x01, header);		//Configure the device, this uses the config settings
+	//ads1298_busy_wait_write(17, 0x01, header);		//Configure the device, this uses the config settings
+	ads1298_busy_wait_write(2, 0x01, header);
+	ads1298_busy_wait_write(14, 0x04, &(header[3]));
 	ads1298_busy_wait_write(2, 0x18, wct);			//Turns on WCT and configures it to use the first three channels
 	ads1298_busy_wait_write(1, 0x14, &gpio_init);		//Turn on GPIO (revision 1 PCB this has to be done as floating, future versions poss have LEDs)
 	ads1298_busy_wait_read(1, 0x00, &part);			//The first register is the ID register

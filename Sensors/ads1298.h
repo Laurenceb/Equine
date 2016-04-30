@@ -40,8 +40,8 @@ extern volatile uint8_t ADS1298_Error_Status;
 #define ADS1298_RLD_ITERATIONS 25
 #define ADS1298_RLD_TEST_ITERATIONS 500
 
-//Buffer size in samples, half a second of data and uses 4k of memory
-#define ADS1298_BUFFER 125
+//Buffer size in samples, just under half a second of data and uses 4k of memory
+#define ADS1298_BUFFER 120
 
 //This can be defined to activate LEDs on the four GPIO outputs. LED signals are: 1) RLD failed, 2) RLD remapped, 3) WCT poor, 4) WCT failed.
 //#define ECG_LEDS /*Now defined as a function of PCB revision (PCB in gpio.h) */ 
