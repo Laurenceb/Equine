@@ -133,12 +133,18 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	ads1298_busy_wait_command(ADS1298_SDATAC);
 	/* Reset the ADS1298 */
 	ads1298_busy_wait_command(ADS1298_RESET);
+	Delay(10);
 	/* It is essential to set the device to command mode following reset */
 	ads1298_busy_wait_command(ADS1298_SDATAC);
 	/* Configure the ADS1298 */
-	ads1298_busy_wait_write(sizeof(header), 0x01, header);	//Configure the device, this uses the config settings
+	uint8_t gpio_init=0,config3=0xCC;			//Temp config values
+	ads1298_busy_wait_write(1, 0x03, &config3);
+	uint32_t m=Millis+180;
+	while(m>Millis)
+		__WFI();					//Wait for the reference startup time (+30ms)
+	ads1298_busy_wait_write(17, 0x01, header);		//Configure the device, this uses the config settings
 	ads1298_busy_wait_write(2, 0x18, wct);			//Turns on WCT and configures it to use the first three channels
-	ads1298_busy_wait_write(1, 0x14, 0x00);			//Turn on GPIO (revision 1 PCB this has to be done as floating, future versions poss have LEDs)
+	ads1298_busy_wait_write(1, 0x14, &gpio_init);		//Turn on GPIO (revision 1 PCB this has to be done as floating, future versions poss have LEDs)
 	ads1298_busy_wait_read(1, 0x00, &part);			//The first register is the ID register
 	if((part&0x0F)==1)					//If we have a reduced functionality ADS version, reduce enabled channels
 		Enable&=~0xC0;
@@ -214,9 +220,9 @@ void ads1298_busy_wait_write(uint8_t tx_bytes, uint8_t register_number, uint8_t 
 		while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
 	}
 	while( SPI2->SR & SPI_I2S_FLAG_BSY );	//Wait until SPI is not busy anymore
-	Delay(3);				//There needs to be a delay of at least 2us
+	Delay(4);				//There needs to be a delay of at least 2us
 	NSEL_HIGH;
-	Delay(2);
+	Delay(3);
 }
 
 /**
@@ -243,9 +249,9 @@ void ads1298_busy_wait_read(uint8_t rx_bytes, uint8_t register_number, uint8_t *
 			rx_data[n-2]=SPI2->DR;	//Read the data after it arrives
 	}
 	while( SPI2->SR & SPI_I2S_FLAG_BSY );	//Wait until SPI is not busy anymore
-	Delay(3);				//There needs to be a delay of at least 2us
+	Delay(4);				//There needs to be a delay of at least 2us
 	NSEL_HIGH;
-	Delay(2);
+	Delay(3);
 }
 
 /**
@@ -258,9 +264,9 @@ void ads1298_busy_wait_command(uint8_t command) {
 	SPI_I2S_SendData(SPI2,command);
 	while(SPI_I2S_GetFlagStatus(SPI2, SPI_I2S_FLAG_TXE) == RESET);
 	while( SPI2->SR & SPI_I2S_FLAG_BSY );	//Wait until SPI is not busy anymore
-	Delay(3);				//There needs to be a delay of at least 2us
+	Delay(4);				//There needs to be a delay of at least 2us
 	NSEL_HIGH;
-	Delay(2);
+	Delay(3);
 }
 
 /**
