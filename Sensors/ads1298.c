@@ -30,10 +30,9 @@ volatile uint8_t ADS1298_Error_Status;	//Used to signal a small number of major 
   */
 uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	uint8_t part=0;
-	GPIO_InitTypeDef    GPIO_InitStructure;
+	GPIO_InitTypeDef    GPIO_InitStructure;//Note that the EXTI GPIO config is inside the main interrupt configuration
 	USART_InitTypeDef   USART_InitStructure;
 	SPI_InitTypeDef   SPI_InitStructure;
-	EXTI_InitTypeDef   EXTI_InitStructure;
 	NVIC_InitTypeDef   NVIC_InitStructure;
 
 	SPI_StructInit(&SPI_InitStructure);
@@ -106,7 +105,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	}
 
 	//Note that config is setup to use the AC lead off detect with 10M resistors (AC Current not supported) and mirroring on every other channel
-	uint8_t header[17]={0x46,0x00,0xDC,0x5D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,config->enable_mask,0x00,config->enable_mask,0x00,flipmask};//Note that some of these settings are reset using the config struct
+	uint8_t header[17]={0x46,0x00,0xCC,0x5D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,config->enable_mask,0x00,config->enable_mask,0x00,flipmask};//Note that some of these settings are reset using the config struct
 	Enable=config->enable_mask;// Copy into the global
 	for(uint8_t n=0; n<8; n++) {
 		Init_Buffer(&(ECG_buffers[n]), ADS1298_BUFFER, 4);//Initialise the data buffers (there are 8, lead-off is calculated later)
@@ -159,6 +158,13 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
   */
 void ads1298_start(void) {
 	ads1298_busy_wait_command(ADS1298_START);
+	NVIC_InitTypeDef   NVIC_InitStructure;
+	/* Enable and set EXTI7 Interrupt to the lowest priority */
+	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;	//The DRDY triggered interrupt	
+	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;//Lower pre-emption priority
+	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x05;	//second to lowest group priority - data comes in at only 250hz, so plenty of time
+	NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
+	NVIC_Init(&NVIC_InitStructure); 
 }
 
 /**

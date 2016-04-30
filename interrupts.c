@@ -58,18 +58,12 @@ void ISR_Config(void) {
 	EXTI_DeInit();						//Note that this kills all EXTI settings!
 	/* Connect EXTI7 Line to PB.7 pin - DRDY*/
 	GPIO_EXTILineConfig(GPIO_PortSourceGPIOB, GPIO_PinSource7);
-	/* Configure EXTI7 line */
+	/* Configure EXTI7 line, NVIC is inside ADS1298 config */
 	EXTI_InitStructure.EXTI_Line = EXTI_Line7;
 	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
 	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
 	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
 	EXTI_Init(&EXTI_InitStructure);
-	/* Enable and set EXTI7 Interrupt to the lowest priority */
-	NVIC_InitStructure.NVIC_IRQChannel = EXTI9_5_IRQn;	//The DRDY triggered interrupt	
-	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;//Lower pre-emption priority
-	NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0x05;	//second to lowest group priority - data comes in at only 250hz, so plenty of time
-	//NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
-	NVIC_Init(&NVIC_InitStructure); 
 	/* Enable and set EXTI Interrupt to second to lowest, this is the CTS from the SP1ML SPIRIT1 module */
 	NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;	//The CTS triggered interrupt	
 	NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0x01;//Lower pre-emption priority
