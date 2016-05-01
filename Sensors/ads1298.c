@@ -475,7 +475,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	}
 	if((++rld_sense>=ADS1298_RLD_ITERATIONS)&&(!ads1298_transaction_queue)) {// Periodically the RLD electrode configuration is tested, when all jobs completed ok
 		rld_sense=0;
-		ads1298_transaction_queue|=(1<<RLD_OFF)|(1<<RLD_DISCONNECT)|(1<<RLD_STAT)|(1<<RLD_RECONNECT)|(1<<RLD_ON);//The RLD status sensing jobs
+		ads1298_transaction_queue|=(1<<RLD_OFF)/*|(1<<RLD_DISCONNECT)*/|(1<<RLD_STAT)|/*(1<<RLD_RECONNECT)|*/(1<<RLD_ON);//The RLD status sensing jobs
 	}
 	#ifdef ECG_LEDS
 	if(ADS1298_Error_Status!=ADS1298_Error_Status_local) {//Update the LEDs
@@ -490,32 +490,40 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	//DMA transaction queue manager
 	if(ads1298_transaction_queue) {		// There are queued tasks to complete
 		uint8_t thistask=0;
-		uint8_t sendbuffer[4];		//Bytes to send to the ADS1298, (for some queue tasks we send two commands at once DOESNT WORK!!)
+		uint8_t sendbuffer[6];		//Bytes to send to the ADS1298, (for some queue tasks we send two commands at once DOESNT WORK?)
 		uint8_t register_num,write=0,bytes=1,sentbytes=3;
 		for(;!(ads1298_transaction_queue&(1<<thistask));thistask++);// Find the first set bit
 		switch(thistask) {
 			case RLD_OFF:
 				register_num=0x03;	
 				sendbuffer[2]=0xDA;//Disable the RLD amplifier and enable the sense comparitor
+				sendbuffer[3]=0x4D;
+				sendbuffer[4]=0x00;
+				sendbuffer[5]=0x00;//Disable the RLD inputs to avoid parasitic currents flowing
+				sentbytes=6;
 				write=1;
 			break;
-			case RLD_DISCONNECT:
+			/*case RLD_DISCONNECT:
 				register_num=0x0D;
 				sendbuffer[2]=0x00;//Disable the RLD inputs to avoid parasitic currents flowing
 				write=1;
-			break;
+			break;*/
 			case RLD_STAT:
 				register_num=0x03;
 				sendbuffer[2]=0;
 			break;
-			case RLD_RECONNECT:
+			/*case RLD_RECONNECT:
 				register_num=0x0D;
 				sendbuffer[2]=rld_sensep_reg;	//Enable the RLD inputs again
 				write=1;
-			break;
+			break;*/
 			case RLD_ON:
 				register_num=0x03;
 				sendbuffer[2]=0xDC;//Enable RLD amplifier and disable sense
+				sendbuffer[3]=0x4D;
+				sendbuffer[4]=0x00;
+				sendbuffer[5]=rld_sensep_reg;	//Enable the RLD inputs again
+				sentbytes=6;
 				write=1;
 			break;
 			case WCT_REMAP:
