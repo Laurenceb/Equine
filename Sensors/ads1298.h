@@ -36,9 +36,18 @@ extern volatile uint8_t ADS1298_Error_Status;
 #define ADS1298_LEAD_OFF (-(1<<25))
 #define ADS1298_LEAD_RLD (1<<25)
 
-//These two variables are used for lead-off scheduling control, RLD at 10Hz, RLD turnoff at 0.5Hz
-#define ADS1298_RLD_ITERATIONS 25
-#define ADS1298_RLD_TEST_ITERATIONS 500
+//These two variables are used for lead-off scheduling control, RLD at 1Hz, RLD turnoff at 0.25Hz (but the first one runs more slowly when common mode is low)
+#define ADS1298_RLD_ITERATIONS 250
+#define ADS1298_RLD_TEST_ITERATIONS 1000
+
+//Used for marking a saturated signal as faulty (200ms of saturation gives a fault)
+#define SATURATION_COUNT_LIMIT 50
+#define SATURATION_COUNTDOWN_RATE 5
+
+//Used to automatically schedule RLD sense dependant on common mode signal (mean squared mean common mode). Ignore threshold is 1/4 of range, thresh one is 1/2 etc
+#define COMMON_THRESH_IGNORE (1<<10)
+#define COMMON_THRESH_ONE (2*COMMON_THRESH_IGNORE)
+#define COMMON_THRESH_TWO (3*COMMON_THRESH_IGNORE)
 
 //Buffer size in samples, just under half a second of data and uses 4k of memory
 #define ADS1298_BUFFER 120
@@ -83,6 +92,7 @@ extern volatile int16_t Filtered_ECG[8];
 uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow);
 void ads1298_start(void);
 uint8_t ads1298_gain(void);
+void ads1298_force_rld_sense(void);
 void ads1298_busy_wait_write(uint8_t tx_bytes, uint8_t register_number, uint8_t *tx_data);
 void ads1298_busy_wait_read(uint8_t rx_bytes, uint8_t register_number, uint8_t *rx_data);
 void ads1298_busy_wait_command(uint8_t command);

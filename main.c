@@ -155,7 +155,7 @@ int main(void)
 	ADS_conf.enable_mask=0xFF;			//Default is everything enabled
 	ADS_conf.channel_seven_neg=0;			//Normally connected to WCT rather than used
 	ADS_conf.gain=4;
-	ADS_conf.cap=200;				//Board capacitance
+	ADS_conf.cap=200;				//Board capacitance is already accounted for in ads1298.h. This is estimated cable capacitance in pF
 	//Check to see if battery has enough charge to start
 	EXTI_ONOFF_EN();				//Enable the off interrupt - allow some time for debouncing
 	ADC_Configuration();				//At present this is purely here to detect low battery
@@ -430,6 +430,8 @@ int main(void)
 		if(System_state_Global&0x80) {		//A "control" button press
 			system_state|=System_state_Global&~0x80;//Copy to local variable
 			System_state_Global&=~0x80;	//Wipe the flag bit to show this has been processed
+			if(system_state==2) 
+				ads1298_force_rld_sense();//A double press triggers the RLD sense function
 		}
 		//Deal with file size - check for card errors due to lack of space
 		if(f_err_code)
