@@ -322,7 +322,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	static uint8_t rld_wct_bypass,config_4_reg=0x02,rld_sensep_reg,RLD_replaced_reg,RLD_replaced_reg_old=8,ADS1298_Error_Status_local,LEDs;
 	static int32_t databuffer[8][4];	//Lead-off detect demodulation buffer
 	static uint16_t wct_7N_correction;	//This is used to digitally correct channel 7 so it is referenced to WCT rather than (WCTB+WCTC)/2
-	int32_t common;
+	int32_t common=0;
 	//First loop through all channels
 	for(uint8_t n=0;n<8;n++) {		//Loop through the 8 channels
 		uint32_t dat;
@@ -342,16 +342,16 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			if((n==6) && (channel_wct_conf&0x20) && (!rld_wct_bypass)) {//If the channel 7 (i.e. n==6) input is connected to WCTB/C mean
 				if(!(ads1298_transaction_queue&(1<<WCT_REMAP)))//There is no WCT reconfiguration job still outstanding, update the status
 					memcpy(&wct_7N_correction,wct,2);//We can now use the uint16_t, operating under the assumption it is in effect on ADS1298
-				uint16_t flags=wct_7N_correction&0xC080;//Check the amplifier enable flags
+				uint16_t flags=wct_7N_correction&0xC008;//Check the amplifier enable flags
 				uint8_t chans[3];
 				chans[0]=(wct_7N_correction&0x0007)>>1;//The lead inputs that WCT amplifiers a,b, and c are connected to
 				chans[1]=(wct_7N_correction&0x3800)>>(4+8);
 				chans[2]=(wct_7N_correction&0x0700)>>(1+8);
-				if(flags==0xC080) //All amplifiers running
+				if(flags==0xC008) //All amplifiers running
 					dat+=-databuffer[chans[0]][3]/3+databuffer[chans[1]][3]/6+databuffer[chans[2]][3]/6;//-a/3+b/6+c/6
-				else if(flags==0x4080)//amp c is off
+				else if(flags==0x4008)//amp c is off
 					dat+=-databuffer[chans[0]][3]/4+databuffer[chans[1]][3]/4;//SPICE says this is the correct correction with 30k WCT resistors
-				else if(flags==0x8080)//amp b is off, all other cases do not need to have a correction applied to them
+				else if(flags==0x8008)//amp b is off, all other cases do not need to have a correction applied to them
 					dat+=-databuffer[chans[0]][3]/4+databuffer[chans[2]][3]/4;//If the negative channel resisotrs != 30k, it does not matter
 			}
 			common+=dat;		//Accumulate all channels to look for common mode

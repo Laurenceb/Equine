@@ -28,7 +28,7 @@ extern buff_type ECG_buffers[8];
 extern volatile uint8_t ADS1298_Error_Status;
 
 //Lead-off limit, this corresponds to 71% of the ADC range being used by the AC lead off signal
-#define LEAD_LIM_(x,y) (4800000UL/((x+200)*y)) /*This isn't a perfect approximation but should be within 10% or so*/ /*0x80000000*/ //TODO 00
+#define LEAD_LIM_(x,y) (480000UL/((x+200)*y)) /*This isn't a perfect approximation but should be within 10% or so*/ /*0x80000000*/ //Xtra 0?
 #define ADS1298_LEAD_LIMIT(x,y) (LEAD_LIM_(x,y)*LEAD_LIM_(x,y)) /*Actual limit defined relative to measured amplitude squared*/
 #define ADS1298_LEAD_HYSTERYSIS(x,y) (ADS1298_LEAD_LIMIT(x,y)>>2) /*0x40000000*/
 
