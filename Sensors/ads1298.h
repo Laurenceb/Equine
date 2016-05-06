@@ -27,8 +27,8 @@ int32_t Q;
 extern buff_type ECG_buffers[8];
 extern volatile uint8_t ADS1298_Error_Status;
 
-//Lead-off limit, this corresponds to 71% of the ADC range being used by the AC lead off signal
-#define LEAD_LIM_(x,y) (480000UL/((x+200)*y)) /*This isn't a perfect approximation but should be within 10% or so*/ /*0x80000000*/ //Xtra 0?
+//Lead-off limit, this corresponds to excessing amplitude of the AC lead off signal - should trigger at approx 2Mohm electrode impedance
+#define LEAD_LIM_(x,y) (480000UL/((x+200)*y)) /*This isn't a perfect approximation but should be within 10% or so*/
 #define ADS1298_LEAD_LIMIT(x,y) (LEAD_LIM_(x,y)*LEAD_LIM_(x,y)) /*Actual limit defined relative to measured amplitude squared*/
 #define ADS1298_LEAD_HYSTERYSIS(x,y) (ADS1298_LEAD_LIMIT(x,y)>>2) /*0x40000000*/
 
@@ -45,9 +45,9 @@ extern volatile uint8_t ADS1298_Error_Status;
 #define SATURATION_COUNTDOWN_RATE 5
 
 //Used to automatically schedule RLD sense dependant on common mode signal (mean squared mean common mode). Ignore threshold is 1/4 of range, thresh one is 1/2 etc
-#define COMMON_THRESH_IGNORE (1<<10)
-#define COMMON_THRESH_ONE (2*COMMON_THRESH_IGNORE)
-#define COMMON_THRESH_TWO (3*COMMON_THRESH_IGNORE)
+#define COMMON_THRESH_IGNORE (1<<8) /*one in 4 chance of failure*/
+#define COMMON_THRESH_ONE (2*COMMON_THRESH_IGNORE) /*one in 2*/
+#define COMMON_THRESH_TWO (3*COMMON_THRESH_IGNORE) /*75% probability*/
 
 //Buffer size in samples, just under half a second of data and uses 4k of memory
 #define ADS1298_BUFFER 120

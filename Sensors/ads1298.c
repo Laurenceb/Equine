@@ -106,7 +106,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	}
 
 	//Note that config is setup to use the AC lead off detect with 10M resistors (AC Current not supported) and mirroring on every other channel
-	uint8_t __attribute__((__packed__)) header[17]={0x46,0x00,0xCC,0x5D,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,config->enable_mask,0x00,config->enable_mask,0x00,flipmask};//Note that some of these settings are reset using the config struct
+	uint8_t __attribute__((__packed__)) header[17]={0x46,0x00,0xCC,0xFD,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,config->enable_mask,0x00,config->enable_mask,0x00,flipmask};//Note that some of these settings are reset using the config struct
 	Enable=config->enable_mask;// Copy into the global
 	for(uint8_t n=0; n<8; n++) {
 		Init_Buffer(&(ECG_buffers[n]), ADS1298_BUFFER, 4);//Initialise the data buffers (there are 8, lead-off is calculated later)
@@ -322,7 +322,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	static uint8_t rld_wct_bypass,config_4_reg=0x02,rld_sensep_reg,RLD_replaced_reg,RLD_replaced_reg_old=8,ADS1298_Error_Status_local,LEDs;
 	static int32_t databuffer[8][4];	//Lead-off detect demodulation buffer
 	static uint16_t wct_7N_correction;	//This is used to digitally correct channel 7 so it is referenced to WCT rather than (WCTB+WCTC)/2
-	int32_t common=0;
+	uint8_t common=((*(uint32_t*)raw_data_)&0x000FF000)>>12;//This is the positive side lead off status registers, can't measure com mode from channels due to WCT
 	//First loop through all channels
 	for(uint8_t n=0;n<8;n++) {		//Loop through the 8 channels
 		uint32_t dat;
@@ -390,18 +390,6 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			quality_mask|=~Enable;	//  Disabled channels added to the mask of inactive channels
 		}
 	}
-	//Then handle the common mode estimation/tracking
-	int8_t numchans=0;			// Use this variable to count channels, init as zero 
-	for(uint8_t n=0; n<8; n++)
-		numchans+=(~(quality_mask>>n)&0x01);
-	common/=numchans;			// Normalise the common mode signal
-	commonmode+=((common>>16)*(common>>16)-(int32_t)commonmode)>>7;//An approx 2hz low pass on the common mode estimator
-	if((commonmode<COMMON_THRESH_IGNORE) && (rld_sense<(ADS1298_RLD_ITERATIONS-3)))// This is not applied when rld_sense is close to the top of its range
-		rld_sense--;			// Set the RLD test rate to zero. Setting rld_sense close to top of its range still allows a rld sense to be requested
-	if(commonmode>COMMON_THRESH_ONE)
-		rld_sense++;			// Double the rate 
-	if(commonmode>COMMON_THRESH_TWO)
-		rld_sense+=2;			// 4 times the test rate
 	//Handle aquisition/loss of channels
 	if(old_quality_mask!=quality_mask) {	// Check to see if electrode config changed
 		if((old_quality_mask&0x0F) != (quality_mask&0x0F)) {// Something changed with the first 4 electrodes (ones used for WCT generation)
@@ -425,6 +413,23 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		rld_sensep_reg=~quality_mask;	// Only use the channels which are active
 		old_quality_mask=quality_mask;	// If there was a change to the quality mask, i.e. a change in electrode state
 	}
+	//Reuse the lead of detect to sense excessive common mode voltage
+	int8_t numchans=0;			// Use this variable to count channels, init as zero 
+	uint16_t numfails=0;
+	for(uint8_t n=0; n<8; n++) {
+		numchans+=(~(quality_mask>>n)&0x01);// The number of active channels
+		if(~(quality_mask>>n)&0x01)
+			numfails+=(common>>n)&0x01;// The number of positive input channels which triggered the input range check
+	}
+	numfails=(numfails<<10)/(uint16_t)numchans;// The mean failure rate mutiplied by 1024
+	commonmode+=((numfails-(int32_t)commonmode)>>7;//An approx 2hz low pass on the common mode estimator
+	if((commonmode<COMMON_THRESH_IGNORE) && (rld_sense<(ADS1298_RLD_ITERATIONS-3)))// This is not applied when rld_sense is close to the top of its range
+		rld_sense--;			// Set the RLD test rate to zero. Setting rld_sense close to top of its range still allows a rld sense to be requested
+	if(commonmode>COMMON_THRESH_ONE)
+		rld_sense++;			// Double the rate 
+	if(commonmode>COMMON_THRESH_TWO)
+		rld_sense+=2;			// 4 times the test rate
+	//Error code handling
 	if(RLD_replaced!=8)
 		ADS1298_Error_Status|=(1<<RLD_REMAPPED);// The remap is kind of bad but not the end of the world, mark it as another failure case
 	else
