@@ -169,7 +169,7 @@ void I2C1_EV_IRQHandler(void) {
 			uint16_t timeout=50000;
 			while(I2C1->CR1&0x0200 && timeout){timeout++;}//doesnt seem to be a better way to do this, must wait for stop to clear
 			if(!timeout) {//timeout error - save the job
-				I2C1error.error=0x30;
+				I2C1error.error|=0x20;
 				I2C1error.job=job;
 				return;
 			}
@@ -247,7 +247,7 @@ void I2C1_Request_Job(uint8_t job_) {
 				uint16_t timeout=50000;
 				while(I2C1->CR1&0x0200 && timeout){timeout++;}//wait for any stop to finish sending
 				if(!timeout) {//timeout error - save the job
-					I2C1error.error=0x10;
+					I2C1error.error|=0x10;
 					I2C1error.job=job_;
 					return;
 				}

@@ -385,8 +385,6 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 				quality_mask|=1<<n;//RLD replacement also marks electrodes as bad. Clear flag if AC level is below hysterysis threst, and no sat
 			else if((qualityfilter[n]<(ADS1298_LEAD_LIMIT(Cap,Actual_gain)-ADS1298_LEAD_HYSTERYSIS(Cap,Actual_gain))) && saturationcounter[n]<SATURATION_COUNTDOWN_RATE)
 				quality_mask&=~(1<<n);//Clear or set the mask, set bit implies poor electrode
-			if(saturationcounter[n])
-			quality_mask|=1<<n;
 			quality_mask|=~Enable;	//  Disabled channels added to the mask of inactive channels
 		}
 	}
@@ -422,7 +420,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			numfails+=(common>>n)&0x01;// The number of positive input channels which triggered the input range check
 	}
 	numfails=(numfails<<10)/(uint16_t)numchans;// The mean failure rate mutiplied by 1024
-	commonmode+=((numfails-(int32_t)commonmode)>>7;//An approx 2hz low pass on the common mode estimator
+	commonmode+=(numfails-(int32_t)commonmode)>>7;//An approx 2hz low pass on the common mode estimator
 	if((commonmode<COMMON_THRESH_IGNORE) && (rld_sense<(ADS1298_RLD_ITERATIONS-3)))// This is not applied when rld_sense is close to the top of its range
 		rld_sense--;			// Set the RLD test rate to zero. Setting rld_sense close to top of its range still allows a rld sense to be requested
 	if(commonmode>COMMON_THRESH_ONE)
@@ -437,7 +435,6 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 	//Handle RLD failure
 	if(rld_quality) {			// The RLD electrode failed self test, it has to be remapped to the highest numbered working electrode 
 		ADS1298_Error_Status|=(1<<RLD_FAILURE);// Status shows the failure
-		rld_quality=0;			// Wipe this - only need to deal with each failure once
 		if(RLD_replaced!=8) {		// Replacement in operation
 			qualityfilter[RLD_replaced]=ADS1298_LEAD_LIMIT(Cap,Actual_gain)+1;// Replacement lead probably faulty if RLD failed, re-initialise the filter in failed state
 			quality_mask|=(1<<RLD_replaced);// Mark channel as faulty
@@ -458,6 +455,8 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 				ads1298_transaction_queue|=(1<<RLD_REPLACE);// Stick the replacement remap task into the queue
 				lead_off_mask=Enable&~(1<<RLD_replaced);// Disable the channel
 				ads1298_transaction_queue|=(1<<LEAD_OFF_REPLACE);// Lead-off sense register also needs to be updated to avoid current injection to RLD
+				if(rld_sense>(ADS1298_RLD_ITERATIONS-4))// Make sure this will not run
+					rld_sense=ADS1298_RLD_ITERATIONS-4;
 			}
 		}
 	}
@@ -475,9 +474,10 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			ads1298_transaction_queue|=(1<<RLD_REPLACE);// Task into the queue. If the RLD still isnt functional it will be detected 
 			lead_off_mask=Enable;	// Enable the channel's lead-off
 			ads1298_transaction_queue|=(1<<LEAD_OFF_REPLACE);// The lead-off sense register also needs to be updated to allow lead-off detect
-			rld_sense=ADS1298_RLD_ITERATIONS-3;// Run an detection immediatly afterwards
+			rld_sense=ADS1298_RLD_ITERATIONS-4;// Run an detection immediatly afterwards
 		}
 	}
+	rld_quality=0;				// Wipe this - only need to deal with each failure once
 	if((++rld_sense>=ADS1298_RLD_ITERATIONS)&&(!ads1298_transaction_queue)) {// Periodically the RLD electrode configuration is tested, when all jobs completed ok
 		rld_sense=0;
 		ads1298_transaction_queue|=(1<<RLD_OFF)/*|(1<<RLD_DISCONNECT)*/|(1<<RLD_STAT)|/*(1<<RLD_RECONNECT)|*/(1<<RLD_ON);//The RLD status sensing jobs

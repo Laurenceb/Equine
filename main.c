@@ -71,7 +71,7 @@ int main(void)
 		shutdown();
 	}
 	SysTick_Configuration();			//Start up system timer at 100Hz for uSD card functionality
-	Watchdog_Config(WATCHDOG_TIMEOUT);		//Set the watchdog
+	//Watchdog_Config(WATCHDOG_TIMEOUT);		//Set the watchdog
 	Watchdog_Reset();				//Reset watchdog as soon as possible incase it is still running at power on
 	rtc_init();					//Real time clock initialise - (keeps time unchanged if set)
 	Usarts_Init();
@@ -155,7 +155,7 @@ int main(void)
 	ADS_conf.enable_mask=0xFF;			//Default is everything enabled
 	ADS_conf.channel_seven_neg=0;			//Normally connected to WCT rather than used
 	ADS_conf.gain=4;
-	ADS_conf.cap=200;				//Board capacitance is already accounted for in ads1298.h. This is estimated cable capacitance in pF
+	ADS_conf.cap=500;				//Board capacitance is already accounted for in ads1298.h. This is measured cable capacitance in pF
 	//Check to see if battery has enough charge to start
 	EXTI_ONOFF_EN();				//Enable the off interrupt - allow some time for debouncing
 	ADC_Configuration();				//At present this is purely here to detect low battery
