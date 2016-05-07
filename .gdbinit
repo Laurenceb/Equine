@@ -11,4 +11,4 @@ end
 
 source -v jtag/armv7m-macros.gdb
 reconnect
-break shutdown
+break PWR_EnterSTANDBYMode

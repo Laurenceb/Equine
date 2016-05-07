@@ -319,10 +319,11 @@ void ads1298_wct_config(uint8_t wct_regs[2], uint8_t mask) {
   * @retval None
   */
 void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
-	static uint8_t rld_wct_bypass,config_4_reg=0x02,rld_sensep_reg,RLD_replaced_reg,RLD_replaced_reg_old=8,ADS1298_Error_Status_local,LEDs;
+	static uint8_t rld_wct_bypass,config_4_reg=0x02,rld_sensep_reg,RLD_replaced_reg,RLD_replaced_reg_old=8,ADS1298_Error_Status_local,LEDs,bindex;
 	static int32_t databuffer[8][4];	//Lead-off detect demodulation buffer
 	static uint16_t wct_7N_correction;	//This is used to digitally correct channel 7 so it is referenced to WCT rather than (WCTB+WCTC)/2
 	uint8_t common=((*(uint32_t*)raw_data_)&0x000FF000)>>12;//This is the positive side lead off status registers, can't measure com mode from channels due to WCT
+	bindex++;				//bindex is used to only call the electrode eval routines every 4th iteration (when new data in history buffers)
 	//First loop through all channels
 	for(uint8_t n=0;n<8;n++) {		//Loop through the 8 channels
 		uint32_t dat;
@@ -374,7 +375,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			dat=(uint32_t)(1<<24);	// The 25th bit is set if the channel has been repurposed for RLD
 		Add_To_Buffer(&dat,&(buffers[n]));// Add the data to the buffer
 		Raw_ECG[n]=dat;			//Global allowing the raw data to be directly accessed
-		if(RLD_replaced!=n) {		// If the RLD is replaced, the low pass is not updated (as we don't really know how good the electrode is)
+		if(RLD_replaced!=n && !(bindex&0x03)) {// If the RLD is replaced, the low pass is not updated (as we don't really know how good the electrode is)
 			Int_complex_type quality=ads1298_electrode_quality(&(databuffer[n][0]));//Calculate the quality
 			qualityfilter_[n].I+=(quality.I-(int32_t)qualityfilter_[n].I)>>5;// A low pass, approx 7Hz bandwidth
 			qualityfilter_[n].Q+=(quality.Q-(int32_t)qualityfilter_[n].Q)>>5;
