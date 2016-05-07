@@ -46,8 +46,8 @@ defined in linker script */
 .word	_sbss
 /* end address for the .bss section. defined in linker script */
 .word	_ebss
-/* start address for the heap. defined in linker script */
-.word	end
+/* heap address for malloc */
+.word   end
 
 .equ  BootRAM, 0xF108F85F
 /**

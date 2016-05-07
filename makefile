@@ -1,14 +1,7 @@
 # Compile the project
 
 # Uncomment the appropriate device type and startup file
-#DEVICE_TYPE = STM32F10X_LD
-#STARTUP_FILE = stm32f10x_ld
 DEVICE_TYPE = STM32F10X_MD
-STARTUP_FILE = stm32f10x_md
-#DEVICE_TYPE = STM32F10X_HD
-#STARTUP_FILE = stm32f10x_hd
-#DEVICE_TYPE = STM32F10X_CL
-#STARTUP_FILE = stm32f10x_cl
 
 # Set the external clock frequency
 HSE_VALUE = 12000000UL
@@ -94,8 +87,8 @@ AS = $(CC) -x assembler-with-cpp -c $(TARGET_ARCH)
 ASFLAGS = $(COMPILE_OPTS)
 
 LD = $(CC)
-LDFLAGS = -Wl,--gc-sections,-Map=$(MAIN_MAP),-cref -T lib/TNT/TNT.ld -L lib\
- $(INCLUDE_DIRS) $(LIBRARY_DIRS) $(LIBM) -ffunction-sections -lnosys -specs=nosys.specs -fuse-linker-plugin#-lstdc++
+LDFLAGS = -Wl,--gc-sections,-Map=$(MAIN_MAP),-cref -T lib/ARM-GCC/sections.ld -L lib\
+ $(INCLUDE_DIRS) $(LIBRARY_DIRS) $(LIBM) -ffunction-sections -lnosys #-specs=nosys.specs -fuse-linker-plugin#-lstdc++
 ifndef DEBUG
 LDFLAGS += -flto -Os
 endif
@@ -106,7 +99,7 @@ ARFLAGS = cr
 OBJCOPY = arm-none-eabi-objcopy
 OBJCOPYFLAGS = -O binary
 
-STARTUP_OBJ = lib/CMSIS_CM3/startup/gcc/startup_$(STARTUP_FILE).o
+STARTUP_OBJ = lib/ARM-GCC/startup_ARMCM3.o
 
 MAIN_OUT = main.elf
 MAIN_MAP = $(MAIN_OUT:%.elf=%.map)

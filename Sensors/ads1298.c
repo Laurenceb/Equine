@@ -210,9 +210,9 @@ void ads1298_force_rld_sense(void) {
 Int_complex_type ads1298_electrode_quality(uint32_t buffer[4]) {
 	Int_complex_type r;
 	r.I=buffer[0]-buffer[1]-buffer[2]+buffer[3];
-	r.I>>=11;
+	r.I>>=10;
 	r.Q=buffer[0]+buffer[1]-buffer[2]-buffer[3];
-	r.Q>>=11;
+	r.Q>>=10;
 	return r;
 } 
 

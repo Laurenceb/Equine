@@ -71,7 +71,7 @@ int main(void)
 		shutdown();
 	}
 	SysTick_Configuration();			//Start up system timer at 100Hz for uSD card functionality
-	//Watchdog_Config(WATCHDOG_TIMEOUT);		//Set the watchdog
+	Watchdog_Config(WATCHDOG_TIMEOUT);		//Set the watchdog
 	Watchdog_Reset();				//Reset watchdog as soon as possible incase it is still running at power on
 	rtc_init();					//Real time clock initialise - (keeps time unchanged if set)
 	Usarts_Init();
@@ -355,7 +355,6 @@ int main(void)
 	Millis=0;					//Reset system uptime, we have 50 days before overflow
 	Gps_DMA_Process();				//Processes all GPS data
 	Gps.packetflag=0;				//Reset this to zero
-	ads1298_start();				//Fire up the ADS, this will also start up I2C reads
 	uint32_t samples[2]={};
 	int8_t pad_drop=0;
 	int32_t raw_data_ecg[8]={};			//High rate data
@@ -370,6 +369,7 @@ int main(void)
 		}while(Gps.packetflag!=REQUIRED_DATA);	//We are now syncronised to the datastream
 		Gps.packetflag=0;			//Allow fresh data to arrive
 	}
+	ads1298_start();				//Fire up the ADS, this will also start up I2C reads
 	while(1) {
 		if(!GPIO_ReadInputDataBit(GPIOB,GPIO_Pin_7))// Handle pin already low
 			EXTI_GenerateSWInterrupt(EXTI_Line7);

@@ -7,6 +7,9 @@
  */
 MEMORY
 {
-  FLASH (rx) : ORIGIN = 0x0, LENGTH = 0x20000 /* 128K */
-  RAM (rwx) : ORIGIN = 0x10000000, LENGTH = 0x2000 /* 8K */
+  RAM (rwx) : ORIGIN = 0x20000000, LENGTH = 0x5000/*20K*/
+  FLASH (rx) : ORIGIN = 0x8000000, LENGTH = 0x20000/*128K*/
 }
+
+__HEAP_SIZE = 0x2000; /*8K heap size*/
+__STACK_SIZE = 0xc00; /*3K stack size*/
