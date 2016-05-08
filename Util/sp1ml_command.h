@@ -61,6 +61,9 @@ enum{INIT=0,PUNG,ASSIGNED,REQUEST,REQUEST_TWO};
 //Buffer size used by usart buffers
 #define SP1ML_BUFFER 3072
 
+//Simple 20ms delay
+#define SP1ML_DELAY {uint32_t m=Millis+20; while(Millis<m);};
+
 //Datatype used for the low level request manager state machine. This allows functionality to be shard with bluetooth (RN42)
 typedef struct{
 	uint8_t state;
@@ -85,7 +88,7 @@ extern volatile uint32_t SP1ML_tx_bytes;
 //Functions
 void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*generate_packet)(uint8_t*,uint8_t,uint8_t,uint8_t*), buff_type* buff, uint8_t* tx_s, uint8_t* flag);
 uint8_t hex_to_byte(uint8_t hex);
-void byte_to_hex(uint8_t* hex[2], uint8_t arg);
+void byte_to_hex(uint8_t hex[2], uint8_t arg);
 uint8_t SP1ML_configure(void);
 uint8_t SP1ML_assign_addr(uint8_t addr);
 void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat);

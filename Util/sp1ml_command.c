@@ -94,7 +94,7 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 					*(uint16_t*)&(data[numbits])=Filtered_ECG[n];//Last 8 channels are the IMU, excluding the z compass data
 				else if(stat->signal==REQUEST_TWO){
 					if(n<11)
-						*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Gyro_Buffer.x))[n-8];//Directly use sample buffers from I2C driver 
+						*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Gyro_Buffer.x))[n-8];//Use sample buffers from I2C driver 
 					else if(n<14)
 						*(uint16_t*)&(data[numbits])=((uint16_t*)&(LSM9DS1_Acc_Buffer[n-11]));
 					else
@@ -293,25 +293,25 @@ uint8_t SP1ML_configure(void) {
 	uint8_t success;
 	//Allow any tx3 data to be sent (there shouldn't really be any if this is first time config)
 	if(!(success=SP1ML_command())) {
-		Usart3_Send_Str((char*)"ATS01="FREQUENCY"\n\r");
-		Usart3_Send_Str((char*)"ATS02="DATA_RATE"\n\r");
-		Usart3_Send_Str((char*)"ATS04="TX_POWER"\n\r");
-		Usart3_Send_Str((char*)"ATS05="DEVIATION"\n\r");
-		Usart3_Send_Str((char*)"ATS06="RX_FILTER"\n\r");
-		Usart3_Send_Str((char*)"ATS07="CS_MODE"\n\r");
-		Usart3_Send_Str((char*)"ATS08="RSSI_THRESH"\n\r");
-		Usart3_Send_Str((char*)"ATS14="FEC"\n\r");
-		Usart3_Send_Str((char*)"ATS15="SOURCE"\n\r");
-		Usart3_Send_Str((char*)"ATS16="DESTINATION"\n\r");
-		Usart3_Send_Str((char*)"ATS17="FILTER_MULTICAST"\n\r");
-		Usart3_Send_Str((char*)"ATS18="FILTER_BROADCAST"\n\r");
-		Usart3_Send_Str((char*)"ATS19="FILTER_CRC"\n\r");
-		Usart3_Send_Str((char*)"ATS20="FILTER_SOURCE"\n\r");
-		Usart3_Send_Str((char*)"ATS21="FILTER_DESTINATION"\n\r");//Setting filter source and destination limits us to 1 to 1 comms with the base station
-		Usart3_Send_Str((char*)"ATS24="LED"\n\r");//This is for led to VCC. Use 2 to set for led to GND
-		Usart3_Send_Str((char*)"ATS28="PAYLOAD"\n\r");
-		Usart3_Send_Str((char*)"AT/C\n\r");//this permanently writes to EEPROM, so dont need to call this function again
-		Usart3_Send_Str((char*)"ATO\n\r");
+		Usart3_Send_Str((char*)"ATS01="FREQUENCY"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS02="DATA_RATE"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS04="TX_POWER"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS05="DEVIATION"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS06="RX_FILTER"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS07="CS_MODE"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS08="RSSI_THRESH"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS14="FEC"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS15="SOURCE"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS16="DESTINATION"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS17="FILTER_MULTICAST"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS18="FILTER_BROADCAST"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS19="FILTER_CRC"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS20="FILTER_SOURCE"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS21="FILTER_DESTINATION"\n\r");SP1ML_DELAY//Setting filter source & dest limits us to 1 to 1 comms with the base station
+		Usart3_Send_Str((char*)"ATS24="LED"\n\r");SP1ML_DELAY//This is for led to VCC. Use 2 to set for led to GND
+		Usart3_Send_Str((char*)"ATS28="PAYLOAD"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"AT/C\n\r");SP1ML_DELAY//this permanently writes to EEPROM, so dont need to call this function again
+		Usart3_Send_Str((char*)"ATO\n\r");SP1ML_DELAY
 	}
 	return success;
 }
@@ -338,7 +338,7 @@ uint8_t SP1ML_assign_addr(uint8_t addr) {
   * @param  Pointer to hex array output (no null terminator), and uint8_t argument
   * @retval None
   */
-void byte_to_hex(uint8_t* hex[2], uint8_t arg) {
+void byte_to_hex(uint8_t hex[2], uint8_t arg) {
 	hex[1]=arg&0x0F;
 	hex[1]+=0x30;
 	if(hex[1]>0x39)
