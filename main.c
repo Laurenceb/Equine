@@ -397,10 +397,12 @@ int main(void)
 					flashCode=FLASH_POOR_GPS;
 			}
 			else
-				flashCode=0;
+				flashCode=FLASH_OK;
 		}
 		if(Battery_Voltage<BATTERY_STARTUP_LIMIT)//Low battery warning flash, this overrules other flash codes
 			flashCode=FLASH_BATTERY;
+		if(flashCode==FLASH_OK && ADS1298_Error_Status&(1<<WCT_FAILURE))//If no other flash codes are in operation and the ADS1298 WCT failed flash error
+			flashCode=FLASH_LEADS;
 		if(pad_drop<=0) {			//We retrieve the data from the high rate buffers (8 ADS buffers followed by 10 LSM)
 			for(uint8_t n=0; n<8; n++) {	//Samples that will be used
 				Get_From_Buffer(&(raw_data_ecg[n]),&(ECG_buffers[n]));//Compress the error codes and saturation handling into 24 bits
@@ -559,7 +561,7 @@ uint8_t process_gps_data(int16_t data_gps[6], Ubx_Gps_Type* Gps_, uint8_t system
 			GPS_telem.flag=1;		//Flag as new data arrived
 		}
 	}//Stuff in the number of sats (upper byte), the gps status code (lowest nibble), and the system status (second to lowest nibble). This always happens
-	data_gps[5]=(int16_t)(((uint16_t)Gps_->nosats)<<8|(uint16_t)((Gps_->status)&0x0f))|((system_state_&0x0f)<<4);
+	data_gps[5]=(int16_t)((((uint16_t)Gps_->nosats)<<8)|(uint16_t)((Gps_->status)&0x0f)|((system_state_&0x0f)<<4));
 	return (3-Gps_->status);
 }
 

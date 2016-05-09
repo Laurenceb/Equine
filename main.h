@@ -37,10 +37,11 @@ extern uint8_t flashCodeEnabled;
 #define WATCHDOG_TIMEOUT 3000	/*4 second timeout - enough for the uSD card to block its max time and a bit*/
 
 
-#define FLASH_NO_GPS 0xf002
+#define FLASH_NO_GPS 0xf002	/*long-short flashes for GPS*/
 #define FLASH_POOR_GPS 0xf00a
 #define	FLASH_OK  0
-#define FLASH_BATTERY 0xe738
+#define FLASH_BATTERY 0xe738	/*double flash for battery*/
+#define FLASH_LEADS 0xcccc	/*continual flashing for v poor lead situation*/
 
 
 enum{BUTTON_TURNOFF=1,USB_INSERTED,NO_SENSOR,LOW_BATTERY,OVER_HEATED_SENSOR,PRESSURE_LOSS,SIGNAL_STRENGTH,NO_CARD_SPACE,UNKNOWN};
