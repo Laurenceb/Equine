@@ -1,4 +1,4 @@
-function n=plotdata(location_root)
+function n=plotdata(location_root,optarg)
 	[n,m]=system(["ls -tr '",location_root,"'"]);
 	if(n)
 		return;		%failure
@@ -17,8 +17,9 @@ function n=plotdata(location_root)
 	sig_to_mv=1200/gain;
 	ecgd(find(abs(ecgd)>=0.999969))=NA;%all error code stuff blanked out
 	ecgd=((ecgd.+circshift(ecgd,2))./2).*sig_to_mv;%remove the lead off signal
-	ecgt=[1:length(ecgd)]./sprecg;
+	ecgt=[0:length(ecgd)-1]./sprecg;
 	subplot(1,1,1);
+	clf;
 	plot(ecgt,ecgd);
 	traces={"RA","LA","LL","V1","V2","V3","V4","V5"};
 	xlabel("Time (seconds)");
@@ -53,6 +54,18 @@ function n=plotdata(location_root)
 		plot(gpst,speedkmh(indx+2:end));
 		xlabel("Time (seconds)");
 		ylabel("Speed (km/h)");
+		if(nargin>1)
+			nsats=gpsd(indx+2:end,6).*2^15;
+			figure();
+			subplot(1,1,1);
+			nsats_=floor(nsats./256);
+			code=floor((nsats.-(nsats_*256))./16);
+			plot(gpst,nsats_);
+			hold on;
+			plot(gpst,code,'r');
+			legend("Number of sats","Button code");
+			hold off;
+		end
 	end
 	n=0;
 endfunction
