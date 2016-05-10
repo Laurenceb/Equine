@@ -379,12 +379,16 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			qualityfilter_[n][bindex>>2].I=quality.I;// load into buffer
 			qualityfilter_[n][bindex>>2].Q=quality.Q;
 			if(bindex>=16) {
-				bindex=0xff;	//so it rolls over
-				uint32_t q=0;
-				for(uint8_t m=0; m<5; m++)
-					q+=(qualityfilter_[n][m].I*qualityfilter_[n][m].I)+(qualityfilter_[n][m].Q*qualityfilter_[n][m].Q);
-				q/=5;		// Find the average amplitude
-				qualityfilter[n]+=((int32_t)q-(int32_t)qualityfilter[n])>>5;//Secondary low pass filtering
+				Int_complex_type q;
+				q.I=0;q.Q=0;
+				for(uint8_t m=0; m<5; m++) {
+					q.I+=qualityfilter_[n][m].I;
+					q.Q+=qualityfilter_[n][m].Q;
+				}
+				q.I/=5;		// Find the average amplitude
+				q.Q/=5;
+				uint32_t q_=(q.I*q.I)+(q.Q*q.Q);
+				qualityfilter[n]+=((int32_t)q_-(int32_t)qualityfilter[n])>>5;//Secondary low pass filtering
 			}
 			// Set the flag if there is too much AC from the lead off detect, or too much saturation
 			if(qualityfilter[n]>ADS1298_LEAD_LIMIT(Cap,Actual_gain) || saturationcounter[n]==SATURATION_COUNT_LIMIT)
@@ -394,6 +398,8 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			quality_mask|=~Enable;	//  Disabled channels added to the mask of inactive channels
 		}
 	}
+	if(bindex>=16)
+		bindex=0xff;	//so it rolls over
 	//Handle aquisition/loss of channels
 	if(old_quality_mask!=quality_mask) {	// Check to see if electrode config changed
 		if((old_quality_mask&0x0F) != (quality_mask&0x0F)) {// Something changed with the first 4 electrodes (ones used for WCT generation)
