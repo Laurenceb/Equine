@@ -16,7 +16,7 @@ static volatile uint8_t lead_off_mask;	//Mask register setting used for enable/d
 static uint8_t Gain,Enable,Actual_gain,Cap,saturationcounter[8],RLD_replaced=8;//Gain setting used for the PGA, and mask of used channels, global copies
 static uint16_t ads1298_transaction_queue;//This is used for managing runtime reconfiguration commands, they are prioritised using the queue and run at sample rate
 static filter_state_type_c ECG_filter_states[8];//Used for bandpass and notch filtering of the telemetry data
-static Int_complex_type qualityfilter_[8];//Used to low pass filter the AC lead-off detect to avoid short upsets
+static Int_complex_type qualityfilter_[8][5];//Used to low pass filter the AC lead-off detect to avoid short upsets. TODO add 60hz mode
 static uint32_t qualityfilter[8],commonmode;//Used as a further step of low pass filtering on the I^2+Q^2 output. Commonmode used for auto scheduling of RLD test
 static uint16_t rld_replace_counter,rld_sense;
 
@@ -355,7 +355,6 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 				else if(flags==0x8008)//amp b is off, all other cases do not need to have a correction applied to them
 					dat+=-databuffer[chans[0]][3]/4+databuffer[chans[2]][3]/4;//If the negative channel resisotrs != 30k, it does not matter
 			}
-			common+=dat;		//Accumulate all channels to look for common mode
 			databuffer[n][3]=(int32_t)dat;//Load the latest data into the history buffer. Don't need to correct the range here as 32 bit
 			if(abs(*(int32_t*)&dat)>=((1<<23)-1)) {//enforce range lim on dat value (so range checking can be used in lead-off & RLD id)
 				dat=((*(int32_t*)&dat)<0)?-((int32_t)(1<<23)-2):((int32_t)(1<<23)-2);
@@ -377,10 +376,16 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		Raw_ECG[n]=dat;			//Global allowing the raw data to be directly accessed
 		if(RLD_replaced!=n && !(bindex&0x03)) {// If the RLD is replaced, the low pass is not updated (as we don't really know how good the electrode is)
 			Int_complex_type quality=ads1298_electrode_quality(&(databuffer[n][0]));//Calculate the quality
-			qualityfilter_[n].I+=(quality.I-(int32_t)qualityfilter_[n].I)>>5;// A low pass, approx 7Hz bandwidth
-			qualityfilter_[n].Q+=(quality.Q-(int32_t)qualityfilter_[n].Q)>>5;
-			uint32_t q=(qualityfilter_[n].I*qualityfilter_[n].I)+(qualityfilter_[n].Q*qualityfilter_[n].Q);
-			qualityfilter[n]+=((int32_t)q-(int32_t)qualityfilter[n])>>5;//Secondary low pass filtering
+			qualityfilter_[n][bindex>>2].I=quality.I;// load into buffer
+			qualityfilter_[n][bindex>>2].Q=quality.Q;
+			if(bindex>=16) {
+				bindex=0;
+				uint32_t q=0;
+				for(uint8_t m=0; m<5; m++)
+					q+=(qualityfilter_[n][m].I*qualityfilter_[n][m].I)+(qualityfilter_[n][m].Q*qualityfilter_[n][m].Q);
+				q/=5;		// Find the average amplitude
+				qualityfilter[n]+=((int32_t)q-(int32_t)qualityfilter[n])>>5;//Secondary low pass filtering
+			}
 			// Set the flag if there is too much AC from the lead off detect, or too much saturation
 			if(qualityfilter[n]>ADS1298_LEAD_LIMIT(Cap,Actual_gain) || saturationcounter[n]==SATURATION_COUNT_LIMIT)
 				quality_mask|=1<<n;//RLD replacement also marks electrodes as bad. Clear flag if AC level is below hysterysis threst, and no sat
