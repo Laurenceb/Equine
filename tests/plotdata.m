@@ -25,6 +25,7 @@ function n=plotdata(location_root,optarg)
 	xlabel("Time (seconds)");
 	ylabel("ECG (mV)");
 	legend(traces);
+	set(gca(),'ycolor','b');
 	%process the gps and plot location
 	if(max(abs(gpsd(1:end-1,1:2)))>0)
 		indx=min(find(abs(gpsd(:,1))>0));	 
@@ -49,11 +50,13 @@ function n=plotdata(location_root,optarg)
 		plot(gpsd(indx+2:end,2).*2^15,gpsd(indx+2:end,1).*2^15);%position in meters
 		xlabel("Easting(m)");
 		ylabel("North(m)");
+		set(gca(),'ycolor','b');
 		subplot(2,1,2);
 		gpst=[indx+2:length(gpsd)]./sprgps;
 		plot(gpst,speedkmh(indx+2:end));
 		xlabel("Time (seconds)");
 		ylabel("Speed (km/h)");
+		set(gca(),'ycolor','b');
 		if(nargin>1)
 			nsats=gpsd(indx+2:end,6).*2^15;
 			figure();
@@ -64,8 +67,38 @@ function n=plotdata(location_root,optarg)
 			hold on;
 			plot(gpst,code,'r');
 			legend("Number of sats","Button code");
+			xlabel("Time (seconds)");
+			set(gca(),'ycolor','b');
 			hold off;
 		end
 	end
+	%process and plot the IMU data, use three subplots, for accel, gyro, and magno
+	figure();
+	clf;
+	leg={'x','y','z'};
+	subplot(3,1,1);
+	imut=[0:length(imud)-1]./sprimu;
+	plot(imut,imud(:,1:3).*2000);
+	legend(leg);
+	set(gca(),'ycolor','b');
+	ylabel("Rotation rate (^{o}s^{-1})");
+	subplot(3,1,2);
+	plot(imut,imud(:,4:6).*8);
+	ylabel("Acceleration (G)");
+	set(gca(),'ycolor','b');
+	subplot(3,1,3);
+	imud(find(abs(imud(:,10).*2^15)>90),10)=NA;
+	temp=imud(:,10).*2^15;
+	ind=find(~isna(temp));
+	temp=interp1(ind,temp(ind),[1:length(temp)]);
+	[a,b]=butter(2,0.01);
+	temp=filtfilt(a,b,temp);
+	imud(:,7:8).*=-1;
+	[ax,h1,h2]=plotyy(imut,imud(:,7:9).*4,imut,temp);
+	ylabel(ax(1),"Magnetic flux (Gs)");
+	ylabel(ax(2),"Temperature ^{o}C");
+	xlabel("Time (seconds)");
+	set(h2,'color','k');
+	set(ax(2),'ycolor','k');
 	n=0;
 endfunction
