@@ -379,7 +379,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			qualityfilter_[n][bindex>>2].I=quality.I;// load into buffer
 			qualityfilter_[n][bindex>>2].Q=quality.Q;
 			if(bindex>=16) {
-				bindex=0;
+				bindex=0xff;	//so it rolls over
 				uint32_t q=0;
 				for(uint8_t m=0; m<5; m++)
 					q+=(qualityfilter_[n][m].I*qualityfilter_[n][m].I)+(qualityfilter_[n][m].Q*qualityfilter_[n][m].Q);

@@ -5,6 +5,7 @@ function n=plotdata(location_root,optarg)
 	end
 	s=strsplit(m,"\n");
 	folder=s{end-1};	%the most recent folder
+	printf("%s\n",folder);fflush(stdout);
 	folder=[location_root,"/",folder,"/",folder];% the most recent recording directory
 	ecg=[folder,".wav"];
 	gps=[folder,"_gps.wav"];
