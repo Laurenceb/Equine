@@ -1,4 +1,4 @@
-function n=plotdata(location_root,optarg)
+function [n,rawdata,filtdata]=plotdata(location_root,optarg)
 	[n,m]=system(["ls -tr '",location_root,"'"]);
 	if(n)
 		return;		%failure
@@ -18,7 +18,15 @@ function n=plotdata(location_root,optarg)
 	sig_to_mv=1200/gain;
 	ecgd(find(abs(ecgd)>=0.999969))=NA;%all error code stuff blanked out
 	ecgd=((ecgd.+circshift(ecgd,2))./2).*sig_to_mv;%remove the lead off signal
+	rawdata=ecgd;		%raw data in mv is returned
+	[a,b]=butter(2,2*30/sprecg);%30hz low pass
+	filtdata=rawdata;
+	filtdata(isna(filtdata))=0;
+	filtdata=filtfilt(a,b,filtdata);
+	[a,b]=butter(2,2*0.45/sprecg,'high');%0.45hz high pass
+	filtdata=filtfilt(a,b,filtdata);
 	ecgt=[0:length(ecgd)-1]./sprecg;
+	filtdata=[ecgt',filtdata];
 	subplot(1,1,1);
 	clf;
 	plot(ecgt,ecgd);
@@ -83,10 +91,12 @@ function n=plotdata(location_root,optarg)
 	legend(leg);
 	set(gca(),'ycolor','b');
 	ylabel("Rotation rate (^{o}s^{-1})");
+	xlim([min(imut) max(imut)]);
 	subplot(3,1,2);
 	plot(imut,imud(:,4:6).*8);
 	ylabel("Acceleration (G)");
 	set(gca(),'ycolor','b');
+	xlim([min(imut) max(imut)]);
 	subplot(3,1,3);
 	imud(find(abs(imud(:,10).*2^15)>90),10)=NA;
 	temp=imud(:,10).*2^15;
@@ -101,5 +111,7 @@ function n=plotdata(location_root,optarg)
 	xlabel("Time (seconds)");
 	set(h2,'color','k');
 	set(ax(2),'ycolor','k');
+	set(ax(1),'xlim', [min(imut) max(imut)]);
+	set(ax(2),'xlim', [min(imut) max(imut)]);
 	n=0;
 endfunction
