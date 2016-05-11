@@ -51,9 +51,10 @@ function [n,rawdata,filtdata]=plotdata(location_root,optarg)
 		latlong*=1e-7;		%now it is in units of degrees
 		altitude=gpsd(:,3).*(2^15).*1e-2;
 		altitude(find(altitude<0))+=0.01*2^16;%this wrap around allows operation up to 2150 feet above mean sea level
+		alt=mean(altitude(indx+4:(length(altitude)-indx)/2+indx));
 		speed=sqrt(gpsd(:,4).^2.+gpsd(:,5).^2).*(2^15).*0.01;%meters per second
 		speedkmh=speed*3.6;	%km/h speed
-		printf("Latitude:%.4fN, Longitude:%.4fE, Altitude %.1f(msl)\n",latlong(1),latlong(2),altitude(indx));fflush(stdout);
+		printf("Latitude:%.4fN, Longitude:%.4fE, Altitude %.1f(msl)\n",latlong(1),latlong(2),alt);fflush(stdout);
 		figure();
 		subplot(2,1,1);		%to fit everything onto the plot
 		plot(gpsd(indx+2:end,2).*2^15,gpsd(indx+2:end,1).*2^15);%position in meters
