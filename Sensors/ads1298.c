@@ -16,7 +16,7 @@ static volatile uint8_t lead_off_mask;	//Mask register setting used for enable/d
 static uint8_t Gain,Enable,Actual_gain,Cap,saturationcounter[8],RLD_replaced=8;//Gain setting used for the PGA, and mask of used channels, global copies
 static uint16_t ads1298_transaction_queue;//This is used for managing runtime reconfiguration commands, they are prioritised using the queue and run at sample rate
 static filter_state_type_c ECG_filter_states[8];//Used for bandpass and notch filtering of the telemetry data
-static Int_complex_type qualityfilter_[8][5];//Used to low pass filter the AC lead-off detect to avoid short upsets. TODO add 60hz mode
+static Int_complex_type qualityfilter_[8][10];//Used to low pass filter the AC lead-off detect to avoid short upsets. TODO add 60hz mode
 static uint32_t qualityfilter[8],commonmode;//Used as a further step of low pass filtering on the I^2+Q^2 output. Commonmode used for auto scheduling of RLD test
 static uint16_t rld_replace_counter,rld_sense;
 
@@ -378,15 +378,15 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			Int_complex_type quality=ads1298_electrode_quality(&(databuffer[n][0]));//Calculate the quality
 			qualityfilter_[n][bindex>>2].I=quality.I;// load into buffer
 			qualityfilter_[n][bindex>>2].Q=quality.Q;
-			if(bindex>=16) {
+			if(bindex>=36) {
 				Int_complex_type q;
 				q.I=0;q.Q=0;
-				for(uint8_t m=0; m<5; m++) {
+				for(uint8_t m=0; m<10; m++) {
 					q.I+=qualityfilter_[n][m].I;
 					q.Q+=qualityfilter_[n][m].Q;
 				}
-				q.I/=5;		// Find the average amplitude
-				q.Q/=5;
+				q.I/=10;	// Find the average amplitude
+				q.Q/=10;
 				uint32_t q_=(q.I*q.I)+(q.Q*q.Q);
 				qualityfilter[n]+=((int32_t)q_-(int32_t)qualityfilter[n])>>5;//Secondary low pass filtering
 			}
@@ -398,7 +398,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			quality_mask|=~Enable;	//  Disabled channels added to the mask of inactive channels
 		}
 	}
-	if(bindex>=16)
+	if(bindex>=36)
 		bindex=0xff;	//so it rolls over
 	//Handle aquisition/loss of channels
 	if(old_quality_mask!=quality_mask) {	// Check to see if electrode config changed
