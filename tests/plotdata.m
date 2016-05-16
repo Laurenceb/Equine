@@ -3,7 +3,7 @@ function [n,rawdata,filtdata]=plotdata(location_root,optarg)
 	[n,m]=system(["ls -tr '",location_root,"'"]);
 	else
 		if(ispc())
-			[n,m]=system(["dir /OD '",location_root,"'"]);
+			[n,m]=system(["dir ", '"', location_root, '"', " /B /OD"]);
 		else
 			return; %failure
 		end
