@@ -127,8 +127,12 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 		qualityfilter[n]=ADS1298_LEAD_LIMIT(Cap,Actual_gain)+1;
 	//Enable the WCT amplifiers, and connects them to positive inputs 1,2,3 (or the appropriate ones)
 	ads1298_wct_config(wct, Enable&0x0F);
+	#ifndef ECG_LEDS
 	wct[0]|=config->channel_seven_neg?0x00:0x20;		//Connects the channel 7 negative input to (WCTB+WCTC)/2 (note inverted level, normally N7=WCT)
 	channel_wct_conf=wct[0]&0xF0;				//Global used for reference if the WCT config is changed
+	#else
+	channel_wct_conf=config->channel_seven_neg?0x00|0x20;	//On revision 2 pcb, channel 7 negative goes to an external mux
+	#endif
 	memcpy(old_wct,wct,2);
 	/* Send the SDATAC command, it is unclear if this is essential on POR */
 	ads1298_busy_wait_command(ADS1298_SDATAC);
@@ -301,7 +305,9 @@ void ads1298_wct_config(uint8_t wct_regs[2], uint8_t mask) {
 	}
 	wct_regs[0]=(amp[0]&0x07)|(amp[0]&0x08?0x00:0x08);//Disable/Enable WCTA amp as approriate
 	wct_regs[1]=((amp[1]&0x07)<<3)|(amp[2]&0x07)|(amp[1]&0x08?0x00:0x40)|(amp[2]&0x08?0x00:0x80);//Set the amplifiers to the appropriate channels and enable
+	#ifndef ECG_LEDS
 	wct_regs[0]|=channel_wct_conf;	//Set the channel connection bits using the global variable (this will only be configurable using the config file)
+	#endif
 	if(failure)			//Set the WCT warning and failure bits as appropriate dependent on which amplifiers are running
 		ADS1298_Error_Status|=(1<<WCT_SUBOPTIMAL);
 	else
@@ -340,6 +346,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 			dat&=0x00ffffff;
 			if(dat&0x800000)
 				dat|=0xFF000000;//Sign extend to a 32bit signed integer or int32_t
+			#ifndef ECG_LEDS	/*On the revision 1 PCB, the internal mux is employed, but this doesn't seem to work properly, so V2 uses external*/ 
 			if((n==6) && (channel_wct_conf&0x20) && (!rld_wct_bypass)) {//If the channel 7 (i.e. n==6) input is connected to WCTB/C mean
 				if(!(ads1298_transaction_queue&(1<<WCT_REMAP)))//There is no WCT reconfiguration job still outstanding, update the status
 					memcpy(&wct_7N_correction,wct,2);//We can now use the uint16_t, operating under the assumption it is in effect on ADS1298
@@ -355,6 +362,7 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 				else if(flags==0x8008)//amp b is off, all other cases do not need to have a correction applied to them
 					dat+=-databuffer[chans[0]][3]/4+databuffer[chans[2]][3]/4;//If the negative channel resisotrs != 30k, it does not matter
 			}
+			#endif
 			databuffer[n][3]=(int32_t)dat;//Load the latest data into the history buffer. Don't need to correct the range here as 32 bit
 			if(abs(*(int32_t*)&dat)>=((1<<23)-1)) {//enforce range lim on dat value (so range checking can be used in lead-off & RLD id)
 				dat=((*(int32_t*)&dat)<0)?-((int32_t)(1<<23)-2):((int32_t)(1<<23)-2);
@@ -500,7 +508,17 @@ void ads1298_handle_data_arrived(uint8_t* raw_data_, buff_type* buffers) {
 		LEDs=ADS1298_Error_Status_local;
 		if(ADS1298_Error_Status_local&(1<<WCT_FAILURE))
 			LEDs&=~(1<<WCT_SUBOPTIMAL);
-		LEDs<<=4;			//GPIOs to output state (bottom nibble all zeros)
+		LEDs<<=4;			// GPIOs to output state (bottom nibble all zeros)
+		if(LEDs&0xC0) {			// LEDs 3 and 4 run off the same GPIO pin (GPIO3) using charliepixeling. Note this means that they cannot both be on
+			if(LEDs&0x80)
+				LEDs|=0x40;	// GPIO3 high - LED4 is on
+			else
+				LEDs&=~(0x40);	// GPIO3 low - LED3
+		}
+		else
+			LEDs|=0x04;		// GPIO3 to input
+		LEDs&=0x7F;		// Wipe GPIO4, it's then set using the Chan7_N setting (GPIO4 to mux)
+		LEDs|=((~channel_wct_conf)&0x20)<<2;// Copy over the inverse Chan7_N setting bit to the GPIO4 to control external mux (logic 0 -> WCT on v2 pcb) 
 		ads1298_transaction_queue|=(1<<GPIO_UPDATE);
 	}
 	#endif
