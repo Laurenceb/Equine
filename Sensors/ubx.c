@@ -197,6 +197,7 @@ uint8_t Config_Gps(void) {
 	static const char sbas[]=SBAS_OFF;
 	static const char packets[]=LLN_ENABLE VEL_ENABLE STAT_ENABLE;//note that this has only one header
 	static const char usart_conf[]=USART1_57600_UBX;
+	static const char i2c_conf[]=DISABLE_I2C;
 	Gps_Send_Str(gll_off);			//Use NMEA commands to disable all sentences
 	Gps_Send_Str(zda_off);
 	Gps_Send_Str(vtg_off);
@@ -227,6 +228,10 @@ uint8_t Config_Gps(void) {
 	Gps_Send_Utf8(sbas);			//Set SBAS enabled
 	if(Get_UBX_Ack(sbas[3],sbas[4])) {
 		printf("Ack Error -SBAS config\r\n");
+		return 1;}
+	Gps_Send_Utf8(i2c_conf);		//Set SBAS enabled
+	if(Get_UBX_Ack(i2c_conf[3],i2c_conf[4])) {
+		printf("Ack Error -I2C (DDC) config\r\n");
 		return 1;}
 	return 0;				//Success
 }
