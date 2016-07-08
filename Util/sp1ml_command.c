@@ -80,7 +80,7 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 			stat->signal=stat->internal_type;//This should be REQUEST, a state that is not actually used externally at present
 		}
 	}
-	if(stat->main_mask&&stat->main_counter&&*flag && SP1ML_state==ASSIGNED) {//Next handle the data request, only if we are in correct state and have data to send
+	if(stat->main_mask&&stat->main_counter&&*flag && stat->upper_level_state==ASSIGNED) {//Next handle the data request, only if we are in correct state and have data to send
 		uint8_t numbits=0;
 		for(uint8_t n=0; n<16; n++) {
 			if(stat->main_mask&(1<<n))
@@ -156,7 +156,7 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) {//2nd state machine, called from main loop to ctrl SP1ML functionality
 	static uint8_t reply_randomiser_delay;		//This is used to prevent a collision if two devices are being assigned with addresses
 	static uint8_t inner_delay,seed,timing;		//Used for randomising pingback
-	switch(SP1ML_state) {
+	switch(stat->upper_level_state) {
 	case INIT:
 		if(!seed) {
 			srand(Millis);			//Rand gets init using the time, which should be semi random due to start up delays
@@ -170,7 +170,7 @@ void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) 
 		else if(!(--inner_delay)&&timing) {	//After the timeout, send the packet. But only enter the timeout if we have a set flag
 			SP1ML_tx_sequence_number=0;	//Ensure this is reset. A packet with the default address and zero sequence number is processed as a name
 			SP1ML_generate_packet(SerialNumber,strlen(SerialNumber),SP1ML_network_address,&SP1ML_tx_sequence_number);
-			SP1ML_state++;			//With the ping response sent
+			stat->upper_level_state++;	//With the ping response sent
 			timing=0;			//Reset this
 		}
 		else if(stat->signal==ASSIGNED && !stat->argument) {//Assigning an invalid network address of 0x00 to a device that has not pungback a name configures
@@ -184,16 +184,16 @@ void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) 
 			if(!SP1ML_assign_addr(stat->argument)) {//Assign the address to the device		
 				Usart3_Send_Str((char*)"ATO\n\r");//Exit command mode
 				SP1ML_tx_bytes=0;	//Reset this here as we will be in a packet aligned state
-				SP1ML_state++;
+				stat->upper_level_state++;
 			}
 			else
-				SP1ML_state=INIT;	//In case of failure at any point, return to the init state
+				stat->upper_level_state=INIT;	//In case of failure at any point, return to the init state
 		}
 	case ASSIGNED:					//Once the device is assigned an address, there are periodic requests for data from the base station
 		if(stat->signal==PUNG) {		//These are normally handled inside the 300hz systick ISR, typically approx 25 samples will be requested
 			if(!SP1ML_assign_addr(NETWORK)) {//A flag can be set from the ISR to force the state machine back to the INIT state (used to reset devices)
 				Usart3_Send_Str((char*)"ATO\n\r");//Exit command mode
-				SP1ML_state=INIT;	//Go back to the init state
+				stat->upper_level_state=INIT;	//Go back to the init state
 				SP1ML_withold=0;	//Ensure the software tx block is unset
 				stat->signal=0;		//Invalidate this
 			}
