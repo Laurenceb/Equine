@@ -1,7 +1,7 @@
 #include "rn42_command.h"
 
 volatile uint8_t RN42_aligned_data_ready;
-volatile SP1ML_tx_rx_state_machine_type RN42_tx_rx_state;
+volatile SP1ML_tx_rx_state_machine_type RN42_tx_rx_state={ .upper_level_state = ASSIGNED}; // There is no upper level network configuration for BT, so init assigned
 volatile uint8_t RN42_tx_sequence_number;
 
 /**
