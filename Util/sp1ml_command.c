@@ -142,10 +142,10 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 		}
 		(*generate_packet)(data, numbits, SP1ML_network_address, tx_s);//Send a data packet, the SP1ML network address is reused for the bluetooth
 		stat->main_counter--;			//Update these
-		*flag=0;				//Ready for new data to be loaded
+		(*flag)=0;				//Ready for new data to be loaded
 	}
 	else if(*flag && stat->sequence_is_time && SP1ML_state==ASSIGNED)//If device connection unreliable its better for sequence number to count samples to state
-		*tx_s++;				//machine, rather than actual transmitted samples. Set this variable to be true for SP1ML, false for RN42 
+		(*tx_s)++;				//machine, rather than actual transmitted samples. Set this variable to be true for SP1ML, false for RN42 
 }
 
 /**
@@ -280,7 +280,7 @@ void SP1ML_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t 
 		}
 	}
 	__sp1ml_send_char(skip^header);			//Work backwards from the end of the packet, skipping skip bytes and replacing with HEAD until packet header
-	*sequence_number++;				//Incriment this
+	(*sequence_number)++;				//Incriment this
 }
 
 

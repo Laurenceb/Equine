@@ -111,7 +111,7 @@ void RN42_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t d
 		}
 	}
 	__usart_send_char(skip);			//Work backwards from the end of the packet, skipping skip bytes and replacing with HEAD until packet header
-	*sequence_number++;				//Incriment this
+	(*sequence_number)++;				//Incriment this
 }
 
 /**
