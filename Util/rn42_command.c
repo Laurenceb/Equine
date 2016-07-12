@@ -95,22 +95,40 @@ uint8_t RN42_get_command(void)
   * @retval None
   */
 void RN42_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t device_network_id, uint8_t* sequence_number) {
-	const uint8_t header=HEAD;
+	const uint8_t header=HEAD;			//COBS uses zero as the id byte, with xor over everything with the head byte
+	uint8_t tmp;
 	Add_To_Buffer(&header,&Usart1_tx_buff);
-	Add_To_Buffer(&device_network_id,&Usart1_tx_buff);//Packet header consists of device network id byte and sequence number (for scrolling graph smoothness)
-	Add_To_Buffer(sequence_number,&Usart1_tx_buff);//This is similar to HDLC packet format
-	uint8_t skip=1;
+	uint8_t skip=1;					//The reverse COBS applies to the two header bytes as well
+	tmp=device_network_id^header;			//xor all the payload
+	if(tmp!=header) {
+		Add_To_Buffer(&tmp,&Usart1_tx_buff);	//Packet header is: device network id byte and sequence number (for scrolling graph smoothness)
+		skip++;
+	}
+	else {
+		tmp=skip^header;
+		Add_To_Buffer(&tmp,&Usart1_tx_buff);
+	}
+	tmp=(*sequence_number)^header;
+	if(tmp!=header) {
+		Add_To_Buffer(&tmp,&Usart1_tx_buff);	//This is similar to HDLC packet format
+		skip++;
+	}
+	else {
+		tmp=skip^header;
+		Add_To_Buffer(&tmp,&Usart1_tx_buff);
+		skip=1;
+	}
 	for(uint8_t n=0; n<number_bytes; n++) {
 		if(data_payload[n]==HEAD) {
-			__usart_send_char(skip);	//The send_char routine is used here as it will kick start the interrupt driven usart comms if needs be
+			__usart_send_char(skip^header);	//The send_char routine is used here as it will kick start the interrupt driven usart comms if needs be
 			skip=1;
 		}
 		else {
 			skip++;
-			__usart_send_char(data_payload[n]);
+			__usart_send_char(data_payload[n]^header);
 		}
 	}
-	__usart_send_char(skip);			//Work backwards from the end of the packet, skipping skip bytes and replacing with HEAD until packet header
+	__usart_send_char(skip^header);			//Work backwards from the end of the packet, skipping skip bytes and replacing with HEAD until packet header
 	(*sequence_number)++;				//Incriment this
 }
 
