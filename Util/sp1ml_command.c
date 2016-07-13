@@ -270,7 +270,7 @@ void SP1ML_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t 
 		skip=1;
 	}
 	for(uint8_t n=0; n<number_bytes; n++) {
-		if(data_payload[n]==HEAD) {
+		if(!data_payload[n]) {
 			__sp1ml_send_char(skip^header);	//The send_char routine is used here as it will kick start the interrupt driven usart comms if needs be
 			skip=1;
 		}
