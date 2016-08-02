@@ -40,6 +40,7 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 			if(stat->internal_type<=ASSIGNED) {//Init ping or assigned pingback
 				stat->main_counter=0;	//This will stop any more data being sent if we have a non request commend during data sample transmission
 				stat->signal=stat->internal_type;//This is a global flag indicating that we can act upon the received data
+				stat->state=0;		//Reset the lower level state machine ready for next packet
 			}
 			else if(stat->internal_type>=REQUEST) {//Request command is the other type, followed by argument with number of sample sets, then 2 byte mask
 				stat->state++;
@@ -86,8 +87,9 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 			if(stat->main_mask&(1<<n))
 				numbits++;	
 		}
-		uint8_t data[numbits*2];
-		numbits=0;
+		uint8_t data[(numbits+1)*2];
+		*(uint16_t*)data=stat->main_mask;	//The mask is sent first
+		numbits=2;				//Offset for mask
 		for(uint8_t n=0; n<16; n++) {		//This does not use buffers between itself and the sensor reading functions, so must run at >= hz
 			if(stat->main_mask&(1<<n)) {	//The mask bit is set
 				if(n<8)			//First 8 channels are the ECG, we use the immediate samples, which are added into globals by respective funcs
@@ -189,6 +191,7 @@ void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) 
 			else
 				stat->upper_level_state=INIT;	//In case of failure at any point, return to the init state
 		}
+		break;
 	case ASSIGNED:					//Once the device is assigned an address, there are periodic requests for data from the base station
 		if(stat->signal==PUNG) {		//These are normally handled inside the 300hz systick ISR, typically approx 25 samples will be requested
 			if(!SP1ML_assign_addr(NETWORK)) {//A flag can be set from the ISR to force the state machine back to the INIT state (used to reset devices)
@@ -219,7 +222,7 @@ uint8_t SP1ML_command(void)
 			__WFI();
 		Usart3_Send_Str((char*)"+++");		//Try to enter Command Mode
 		millis_waitreply=Millis;		//Store the time at which we sent the command
-		while(Millis<(millis_waitreply+370)) {	//Wait for a timeout or the correct reply
+		while(Millis<(millis_waitreply+520)) {	//Wait for a timeout or the correct reply
 			if(anything_in_buff(&Usart3_rx_buff)) {//Get any data from buffer, this will chuck any preceeding data, but that doesn't matter as entry
 				Get_From_Buffer(&datavar,&Usart3_rx_buff);//Is from the disconnected state.
 				if(Reply[read_characters]==datavar) { //Take from buffer and compare
@@ -293,6 +296,7 @@ uint8_t SP1ML_configure(void) {
 	uint8_t success;
 	//Allow any tx3 data to be sent (there shouldn't really be any if this is first time config)
 	if(!(success=SP1ML_command())) {
+		SP1ML_DELAY;
 		Usart3_Send_Str((char*)"ATS01="FREQUENCY"\n\r");SP1ML_DELAY
 		Usart3_Send_Str((char*)"ATS02="DATA_RATE"\n\r");SP1ML_DELAY
 		Usart3_Send_Str((char*)"ATS04="TX_POWER"\n\r");SP1ML_DELAY
@@ -303,11 +307,11 @@ uint8_t SP1ML_configure(void) {
 		Usart3_Send_Str((char*)"ATS14="FEC"\n\r");SP1ML_DELAY
 		Usart3_Send_Str((char*)"ATS15="SOURCE"\n\r");SP1ML_DELAY
 		Usart3_Send_Str((char*)"ATS16="DESTINATION"\n\r");SP1ML_DELAY
-		Usart3_Send_Str((char*)"ATS17="FILTER_MULTICAST"\n\r");SP1ML_DELAY
-		Usart3_Send_Str((char*)"ATS18="FILTER_BROADCAST"\n\r");SP1ML_DELAY
 		Usart3_Send_Str((char*)"ATS19="FILTER_CRC"\n\r");SP1ML_DELAY
 		Usart3_Send_Str((char*)"ATS20="FILTER_SOURCE"\n\r");SP1ML_DELAY
 		Usart3_Send_Str((char*)"ATS21="FILTER_DESTINATION"\n\r");SP1ML_DELAY//Setting filter source & dest limits us to 1 to 1 comms with the base station
+		Usart3_Send_Str((char*)"ATS22="FILTER_MULTICAST"\n\r");SP1ML_DELAY
+		Usart3_Send_Str((char*)"ATS23="FILTER_BROADCAST"\n\r");SP1ML_DELAY
 		Usart3_Send_Str((char*)"ATS24="LED"\n\r");SP1ML_DELAY//This is for led to VCC. Use 2 to set for led to GND
 		Usart3_Send_Str((char*)"ATS28="PAYLOAD"\n\r");SP1ML_DELAY
 		Usart3_Send_Str((char*)"AT/C\n\r");SP1ML_DELAY//this permanently writes to EEPROM, so dont need to call this function again
@@ -326,7 +330,7 @@ uint8_t SP1ML_assign_addr(uint8_t addr) {
 	if(!(success=SP1ML_command())) {
 		uint8_t hexstr[3]={};//Add null terminator
 		byte_to_hex(hexstr,addr);
-		Usart3_Send_Str((char*)"ATS15=");
+		Usart3_Send_Str((char*)"ATS15=0x");
 		Usart3_Send_Str((char*)hexstr);
 		Usart3_Send_Str((char*)"\n\r");
 	}
@@ -343,7 +347,6 @@ void byte_to_hex(uint8_t hex[2], uint8_t arg) {
 	hex[1]+=0x30;
 	if(hex[1]>0x39)
 		hex[1]+=0x27;
-		hex[1]=arg&0x0F;
 	hex[0]=(arg&0xF0)>>4;
 	hex[0]+=0x30;
 	if(hex[0]>0x39)

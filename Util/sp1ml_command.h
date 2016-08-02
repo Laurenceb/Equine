@@ -36,8 +36,8 @@
 #define FILTER_CRC "1"
 #define FILTER_SOURCE "1"
 #define FILTER_DESTINATION "1"
-#define FILTER_MULTICAST "1"
-#define FILTER_BROADCAST "1"
+#define FILTER_MULTICAST "0"
+#define FILTER_BROADCAST "0"
 
 //Network protocol definitions --------------------------------
 

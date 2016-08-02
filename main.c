@@ -194,6 +194,7 @@ int main(void)
 					uint32_t t;
 					while ( ( t = RTC_GetCounter() ) != RTC_GetCounter() ) { ; }//Copied from FatFS, use multiple reads to get corruption free?
 					update_rtc_timestamp(t);//Update the timestamp (in BBRAM) as we reset the RTC
+					SP1ML_configure();//Also configures the SP1ML module
 				}
 			}
 			f_close(&FATFS_wavfile);	//Close the time.txt file

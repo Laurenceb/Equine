@@ -35,6 +35,8 @@
 #define I2C1_SCL	GPIO_Pin_8
 #define I2C1_SDA	GPIO_Pin_9
 
+//#define USE_CTS /*If the SP1ML supports RTS/CTS*/
+
 extern uint8_t bootsource;
 
 void setup_gpio(void);
