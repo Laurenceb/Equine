@@ -212,12 +212,13 @@ void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) 
 uint8_t SP1ML_command(void)
 {
 	uint32_t millis_startget=Millis;		//Store entry time
-	uint32_t millis_waitreply;
+	uint32_t millis_waitreply,Millis_;
+	uint8_t read_characters=0;
 	uint8_t datavar;				//Used to store the read characters
 	const char Reply[]="OK\n\r";
 	while(Millis<(millis_startget+1200)) {		//Loop in here until we break out or we get timeout
-		uint8_t read_characters=0;
-		uint32_t Millis_=Millis;
+		read_characters=0;
+		Millis_=Millis;
 		while(anything_in_buff(&Usart3_tx_buff) && Millis<(Millis_+100))//Empty any data from buffer (it should empty itself)
 			__WFI();
 		Usart3_Send_Str((char*)"+++");		//Try to enter Command Mode
