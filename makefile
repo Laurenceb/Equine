@@ -4,7 +4,7 @@
 DEVICE_TYPE = STM32F10X_MD
 
 # Set the external clock frequency
-HSE_VALUE = 12000000UL
+HSE_VALUE = 12288000UL
 
 # Enable debug compilation - this can also be enabled with D as last argument to make
 #DEBUG = 1

@@ -341,8 +341,10 @@ int main(void)
 	uint8_t ads_gain=ads1298_gain();		//The gain value which is being used
 	RN42_tx_sequence_number=ads_gain;		//The initial RN42 sequence number is set as the gain (can do this and used as should be no BT packet loss)
 	uint8_t n=strlen(SerialNumber);
-	for(;n;n--)
-		SerialNumber[n+1]=SerialNumber[n];	//Stick the current gain on the start of the serial number
+	if(n<19) {					//There is room to expand the number
+		for(;n;n--)
+			SerialNumber[n]=SerialNumber[n-1];//Stick the current gain on the start of the serial number
+	}
 	SerialNumber[0]=ads_gain;			//Note that this must be accomodated in any future used of SerialNumber
 	}
 	const float dcm_pi_init[3] = {DCM_P,DCM_I,DCM_LI};

@@ -82,7 +82,7 @@
  #ifdef STM32F10X_CL   
   #define HSE_Value    ((uint32_t)25000000) /*!< Value of the External oscillator in Hz */
  #else 
-  #define HSE_Value    ((uint32_t)12000000) /*!< Value of the External oscillator in Hz */
+  #define HSE_Value    ((uint32_t)12288000) /*!< Value of the External oscillator in Hz */
  #endif /* STM32F10X_CL */
 #endif /* HSE_Value */
 
@@ -6966,6 +6966,7 @@ typedef struct
 #define  CAN_F13R2_FB13                      ((uint32_t)0x00002000)        /*!<Filter bit 13 */
 #define  CAN_F13R2_FB14                      ((uint32_t)0x00004000)        /*!<Filter bit 14 */
 #define  CAN_F13R2_FB15                      ((uint32_t)0x00008000)        /*!<Filter bit 15 */
+
 
 #define  CAN_F13R2_FB16                      ((uint32_t)0x00010000)        /*!<Filter bit 16 */
 #define  CAN_F13R2_FB17                      ((uint32_t)0x00020000)        /*!<Filter bit 17 */
