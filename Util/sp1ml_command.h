@@ -76,7 +76,8 @@ typedef struct{
 	uint16_t internal_mask;
 	uint8_t sequence_is_time;//This is used to make the sequence number a function of time rather than transmitted bytes. This makes loss recovery easier
 	uint8_t upper_level_state;//Used for managing an upper level state used for address and access control management, only used on SP1ML
-	//This should be in the state ASSIGNED before any data is passed, so init as ASSIGNED on RN42 (todo)
+	//This should be in the state ASSIGNED before any data is passed, so init as ASSIGNED on RN42 ? (todo)
+	uint8_t upper_level_lock;//Used to lock the low level state machine whilst upper level runs
 } SP1ML_tx_rx_state_machine_type;
 
 //Globals used for passing data from the sensor read functions

@@ -19,8 +19,10 @@ volatile SP1ML_tx_rx_state_machine_type SP1ML_tx_rx_state;//This is used for the
 //Function is designed to take a pointer to state struct, can be used for BT commands
 void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*generate_packet)(uint8_t*,uint8_t,uint8_t,uint8_t*), buff_type* buff, uint8_t* tx_s, uint8_t* flag) {
 	const uint8_t request_header[]=REQUEST_HEADER;	//This is the request header, a simple ASCII and HEX argument format
+	if(stat->upper_level_lock)			//This low level state machine is blocked from running
+		return;
 	uint8_t datavar;
-	while(anything_in_buff(buff)) {	//Loop through all the data in the incoming buffer
+	while(anything_in_buff(buff)) {			//Loop through all the data in the incoming buffer
 		Get_From_Buffer(&datavar,buff);
 		switch(stat->state) {
 		case 0:
@@ -53,11 +55,11 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 			datavar=hex_to_byte(datavar);	//The argument is an ascii hex digit (lower case) in the range 0-f
 			stat->sample_counter+=datavar;	//Add in the lower nibble
 			if(stat->sample_counter) {	//Non zero
-				SP1ML_withold=0;	//If we get a non zero request, then allow the SP1ML to transmit (so don't try this command from RN42!)
+				SP1ML_withold&=~0x01;	//If we get a non zero request, then allow the SP1ML to transmit (so don't try this command from RN42!)
 				stat->state++;
 			}
 			else {
-				SP1ML_withold=1;	//Withhold data until we get a new request
+				SP1ML_withold|=0x01;	//Withhold data until we get a new request
 				stat->state=0;		//Loop the state back around to zero, we don't expect any nibbles of mask data to be following
 			}
 			break;
@@ -183,23 +185,28 @@ void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) 
 	case PUNG:					//Involves entering command mode, to write the device address, this is busy waiting nastyness, so main loop
 		if(stat->signal==ASSIGNED) {		//The device address assignment was received, need to enter command mode first 
 			stat->signal=0;			//Invalidate this
+			stat->upper_level_lock=1;	//Lock the lower level
 			if(!SP1ML_assign_addr(stat->argument)) {//Assign the address to the device		
 				Usart3_Send_Str((char*)"ATO\n\r");//Exit command mode
 				SP1ML_tx_bytes=0;	//Reset this here as we will be in a packet aligned state
 				stat->upper_level_state++;
+				SP1ML_withold|=0x02;	//second bit controls packet level blocking, block on packet boundaries in normal operation
 			}
 			else
 				stat->upper_level_state=INIT;	//In case of failure at any point, return to the init state
+			stat->upper_level_lock=0;	//Unlock the lower level
 		}
 		break;
 	case ASSIGNED:					//Once the device is assigned an address, there are periodic requests for data from the base station
 		if(stat->signal==PUNG) {		//These are normally handled inside the 300hz systick ISR, typically approx 25 samples will be requested
+			stat->upper_level_lock=1;	//Lock the lower level
 			if(!SP1ML_assign_addr(NETWORK)) {//A flag can be set from the ISR to force the state machine back to the INIT state (used to reset devices)
 				Usart3_Send_Str((char*)"ATO\n\r");//Exit command mode
 				stat->upper_level_state=INIT;	//Go back to the init state
 				SP1ML_withold=0;	//Ensure the software tx block is unset
 				stat->signal=0;		//Invalidate this
 			}
+			stat->upper_level_lock=0;	//Unlock the lower level
 		} 
 	}
 }
@@ -283,7 +290,18 @@ void SP1ML_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t 
 			__sp1ml_send_char(data_payload[n]^header);
 		}
 	}
-	__sp1ml_send_char(skip^header);			//Work backwards from the end of the packet, skipping skip bytes and replacing with HEAD until packet header
+	if(device_network_id!=NETWORK) {
+		if(count_in_buff(&Usart3_tx_buff)>PAYLOAD_BYTES) {//If the device is associated with a network, wait for at least one payload to be ready
+			SP1ML_tx_bytes=0;		//reset this
+			__sp1ml_send_char(skip^header);
+		}
+		else {
+			tmp=skip^header;
+			Add_To_Buffer(&tmp,&Usart3_tx_buff);
+		}			
+	}
+	else 
+		__sp1ml_send_char(skip^header);		//Work backwards from the end of the packet, skipping skip bytes and replacing with HEAD until packet header
 	(*sequence_number)++;				//Incriment this
 }
 
@@ -329,6 +347,7 @@ uint8_t SP1ML_configure(void) {
 uint8_t SP1ML_assign_addr(uint8_t addr) {
 	uint8_t success;
 	if(!(success=SP1ML_command())) {
+		Delay(2500);	//Approx 2.5ms for CMD mode entry to be completed
 		uint8_t hexstr[3]={};//Add null terminator
 		byte_to_hex(hexstr,addr);
 		Usart3_Send_Str((char*)"ATS15=0x");

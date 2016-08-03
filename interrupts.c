@@ -174,7 +174,7 @@ __attribute__((externally_visible)) void EXTI15_10_IRQHandler(void) {
 		if(GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_15)) 	//Measure the level, if level is high disable interrupt
 			USART3->CR1 &=~(1<<7);			/*Disable the TXE interrupt on USART1*/	
 		else {
-			if(anything_in_buff(&Usart3_tx_buff) && !SP1ML_withold)	//Enable the interrupt if there is anything in the buffer to be sent, and not blocked 
+			if(anything_in_buff(&Usart3_tx_buff) && !(SP1ML_withold&0x01))//Enable the interrupt if there is anything in the buffer to be sent, and not blocked 
 				USART3->CR1 |=(1<<7);
 		}
 	}

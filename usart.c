@@ -244,7 +244,7 @@ __attribute__((externally_visible)) void USART3_IRQHandler(void) {
 			Get_From_Buffer(&tx_data, &Usart3_tx_buff);//Read the data from the tx buffer.
 			USART_SendData(USART3_USART, tx_data);
 			SP1ML_tx_bytes++;			//A byte was sent
-			if(!anything_in_buff(&Usart3_tx_buff) || (!(SP1ML_tx_bytes%PAYLOAD_BYTES)&&SP1ML_withold))/*No more data, or the transmission is blocked*/
+			if(!anything_in_buff(&Usart3_tx_buff) || (!(SP1ML_tx_bytes%PAYLOAD_BYTES)&&SP1ML_withold)) /*No more data, or the transmission is blocked*/
 				USART3->CR1 &=~(1<<7);		//Disable the interrupt here.
 		#ifdef USE_CTS
 		}
@@ -277,7 +277,7 @@ void __sp1ml_send_char(char data) {
 	#ifdef USE_CTS
 	if(!GPIO_ReadInputDataBit(GPIOA,GPIO_Pin_15) && !SP1ML_withold)/*Only enable if we are not blocked*/
 	#else
-	if(!SP1ML_withold)					/*Only enable if we are not blocked*/
+	if(!(SP1ML_withold&0x01))				/*Only enable if we are not blocked by the first bit*/
 	#endif
 		USART3->CR1 |=(1<<7);				/*Enable the TXE interrupt on USART3*/	
 }

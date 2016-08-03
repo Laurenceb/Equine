@@ -2,7 +2,7 @@
 #pragma once
 
 #define anything_in_buff(buffer) !((buffer)->head==(buffer)->tail)
-#define count_in_buff(buffer) ((((buffer)->head-(buffer)->tail+(buffer)->size)%(buffer)->size)/(buffer->block))
+#define count_in_buff(buffer) (((((buffer)->head-(buffer)->tail+(buffer)->size))%(buffer)->size)/((buffer)->block))
 
 // This buffer has variable 
 typedef struct{
