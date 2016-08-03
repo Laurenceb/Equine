@@ -282,12 +282,14 @@ void SP1ML_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t 
 	}
 	for(uint8_t n=0; n<number_bytes; n++) {
 		if(!data_payload[n]) {
-			__sp1ml_send_char(skip^header);	//The send_char routine is used here as it will kick start the interrupt driven usart comms if needs be
+			tmp=skip^header;
+			Add_To_Buffer(&tmp,&Usart3_tx_buff);
 			skip=1;
 		}
 		else {
 			skip++;
-			__sp1ml_send_char(data_payload[n]^header);
+			tmp=data_payload[n]^header;
+			Add_To_Buffer(&tmp,&Usart3_tx_buff);
 		}
 	}
 	if(device_network_id!=NETWORK) {
