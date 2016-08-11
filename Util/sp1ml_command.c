@@ -145,7 +145,8 @@ void SP1ML_rx_tx_data_processor(SP1ML_tx_rx_state_machine_type* stat,void (*gene
 				GPS_telem.flag=0;	//At the end of the packetisation, wipe the data ready flag
 		}
 		(*generate_packet)(data, numbits, SP1ML_network_address, tx_s);//Send a data packet, the SP1ML network address is reused for the bluetooth
-		stat->main_counter--;			//Update these
+		if(stat->main_counter!=255)		//0xff can be sent to force continual tx
+			stat->main_counter--;		//Update these
 		(*flag)=0;				//Ready for new data to be loaded
 	}
 	else if(*flag && stat->sequence_is_time && SP1ML_state==ASSIGNED)//If device connection unreliable its better for sequence number to count samples to state
@@ -186,7 +187,13 @@ void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat) 
 		if(stat->signal==ASSIGNED) {		//The device address assignment was received, need to enter command mode first 
 			stat->signal=0;			//Invalidate this
 			stat->upper_level_lock=1;	//Lock the lower level
-			if(!SP1ML_assign_addr(stat->argument)) {//Assign the address to the device		
+			if(!SP1ML_assign_addr(stat->argument)) {//Assign the address to the device	
+				SP1ML_network_address=stat->argument;//Assign the address
+		//Delay(1000);
+		//Usart3_Send_Str((char*)"AT/SR52=01\n\r");//persistent tx
+		//Delay(1000);
+		//stat->main_counter=0xff;		//continual packets
+
 				Usart3_Send_Str((char*)"ATO\n\r");//Exit command mode
 				SP1ML_tx_bytes=0;	//Reset this here as we will be in a packet aligned state
 				stat->upper_level_state++;
@@ -293,7 +300,7 @@ void SP1ML_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t 
 		}
 	}
 	if(device_network_id!=NETWORK) {
-		if(count_in_buff(&Usart3_tx_buff)>PAYLOAD_BYTES) {//If the device is associated with a network, wait for at least one payload to be ready
+		if(count_in_buff(&Usart3_tx_buff)>PAYLOAD_BYTES*30/*8*/) {//If the device is associated with a network, wait for at least one payload to be ready
 			SP1ML_tx_bytes=0;		//reset this
 			__sp1ml_send_char(skip^header);
 		}
@@ -349,12 +356,49 @@ uint8_t SP1ML_configure(void) {
 uint8_t SP1ML_assign_addr(uint8_t addr) {
 	uint8_t success;
 	if(!(success=SP1ML_command())) {
-		Delay(2500);	//Approx 2.5ms for CMD mode entry to be completed
+		Delay(2000);	//Approx 2ms for CMD mode entry to be completed
 		uint8_t hexstr[3]={};//Add null terminator
 		byte_to_hex(hexstr,addr);
 		Usart3_Send_Str((char*)"ATS15=0x");
 		Usart3_Send_Str((char*)hexstr);
 		Usart3_Send_Str((char*)"\n\r");
+	}
+	return success;
+}
+
+/**
+  * @brief  This function switches the SP1ML from the default 115200 baud up to faster 230400, to enable faster comms
+  * @param  None
+  * @retval uint8_t success argument
+  */
+uint8_t SP1ML_setup(uint32_t newbaud) {
+	uint8_t success;
+	if(!(success=SP1ML_command())) {
+		Delay(2000);	//Approx 2ms for CMD mode entry to be completed
+		if(newbaud&&(newbaud!=115200)) {
+			Usart3_Send_Str((char*)"ATS00=230400\n\r");
+			Delay(1000);	//Wait for the USART internal buffer to empty
+    			USART_InitTypeDef   USART_InitStructure;
+			USART_ITConfig(USART3, USART_IT_RXNE, DISABLE);
+    			USART_Cmd(USART3_USART, DISABLE);
+    			USART_DeInit(USART3_USART);
+    			USART_InitStructure.USART_BaudRate  = 230400;
+    			Default_Usart_Config(&USART_InitStructure);
+    			USART_Init(USART3_USART, &USART_InitStructure );
+    			/* Re-enable the USART3 */
+    			USART_Cmd(USART3_USART, ENABLE);
+			USART_ITConfig(USART3, USART_IT_RXNE, ENABLE);
+			//Delay(1000);
+		}
+		//Usart3_Send_Str((char*)"AT/SR52=00\n\r");//Set NO_ACK to zero - this actually turns on ACK, don't use
+		//Delay(1000);
+		Usart3_Send_Str((char*)"AT/SR53=01\n\r");//Set prescaler to one (rx prescale 2)
+		Delay(1000);
+		Usart3_Send_Str((char*)"AT/SR54=30\n\r");//Set rx count to timeout after 5ms (likely free time between sequences of packets)
+		Delay(1000);
+		Usart3_Send_Str((char*)"ATS08=-85\n\r");
+		Delay(1000);
+		Usart3_Send_Str((char*)"ATO\n\r");//Exit command mode
 	}
 	return success;
 }

@@ -321,9 +321,11 @@ int main(void)
 		if(!(Sensors&(1<<ADS1298)))
 			deadly_flashes=3;		//ADS1298 failure flash code
 	}
+	if(SP1ML_setup(0))
+		deadly_flashes=5;			//5flashes means SP1ML failure
 	//We die, but flash out a number of flashes first
 	if(f_err_code && !deadly_flashes)
-		deadly_flashes=5;			//5 flashes means card error
+		deadly_flashes=6;			//6 flashes means card error
 	if(f_err_code || deadly_flashes) {		//There was an init error
 		for(;deadly_flashes;deadly_flashes--) {
 			RED_LED_ON;

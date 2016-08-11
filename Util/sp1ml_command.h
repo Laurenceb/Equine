@@ -93,6 +93,7 @@ uint8_t hex_to_byte(uint8_t hex);
 void byte_to_hex(uint8_t hex[2], uint8_t arg);
 uint8_t SP1ML_configure(void);
 uint8_t SP1ML_assign_addr(uint8_t addr);
+uint8_t SP1ML_setup(uint32_t newbaud);
 void SP1ML_manager(uint8_t* SerialNumber, SP1ML_tx_rx_state_machine_type* stat);
 void SP1ML_generate_packet(uint8_t* data_payload, uint8_t number_bytes, uint8_t device_network_id, uint8_t* sequence_number);
 

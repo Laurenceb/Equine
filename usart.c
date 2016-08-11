@@ -244,8 +244,12 @@ __attribute__((externally_visible)) void USART3_IRQHandler(void) {
 			Get_From_Buffer(&tx_data, &Usart3_tx_buff);//Read the data from the tx buffer.
 			USART_SendData(USART3_USART, tx_data);
 			SP1ML_tx_bytes++;			//A byte was sent
-			if(!anything_in_buff(&Usart3_tx_buff) || (!(SP1ML_tx_bytes%PAYLOAD_BYTES)&&SP1ML_withold)) /*No more data, or the transmission is blocked*/
+			if(!anything_in_buff(&Usart3_tx_buff))  /*No more data, nothing more to send*/
 				USART3->CR1 &=~(1<<7);		//Disable the interrupt here.
+			else if(!(SP1ML_tx_bytes%PAYLOAD_BYTES)&&(SP1ML_withold&0x01))
+				USART3->CR1 &=~(1<<7);		//Disable the interrupt on the next packet boundary in the case of network withold
+			else if(!(SP1ML_tx_bytes%PAYLOAD_BYTES)&&(SP1ML_withold&0x02)&&(count_in_buff(&Usart3_tx_buff)<PAYLOAD_BYTES))
+				USART3->CR1 &=~(1<<7);		//Disable the interrupt on packet boundary when no more packets remaining within buffer
 		#ifdef USE_CTS
 		}
 		#endif

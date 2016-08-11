@@ -39,7 +39,10 @@ uint8_t RN42_get_name(uint8_t SerialNumber[8], uint8_t allowconfig) {
 			datavar=1;			//One means no name has been assigned
 		}
 		}
-		Usart_Send_Str((char*)"---\r");		//Return to Data mode
+		Usart_Send_Str((char*)"ST,0\r\n");
+		uint32_t millis=Millis;			//Delay routine to allow device to respond
+		while(Millis<(millis+15));
+		Usart_Send_Str((char*)"F,1\r\n");	//Return to (fast) Data mode
 		return datavar;
 	}
 	else {
