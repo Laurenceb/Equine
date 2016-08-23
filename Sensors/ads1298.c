@@ -131,7 +131,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	wct[0]|=config->channel_seven_neg?0x00:0x20;		//Connects the channel 7 negative input to (WCTB+WCTC)/2 (note inverted level, normally N7=WCT)
 	channel_wct_conf=wct[0]&0xF0;				//Global used for reference if the WCT config is changed
 	#else
-	channel_wct_conf=config->channel_seven_neg?0x00|0x20;	//On revision 2 pcb, channel 7 negative goes to an external mux
+	channel_wct_conf=config->channel_seven_neg?0x00:0x20;	//On revision 2 pcb, channel 7 negative goes to an external mux
 	#endif
 	memcpy(old_wct,wct,2);
 	/* Send the SDATAC command, it is unclear if this is essential on POR */
