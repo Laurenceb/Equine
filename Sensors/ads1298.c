@@ -151,6 +151,9 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	ads1298_busy_wait_write(2, 0x01, header);
 	ads1298_busy_wait_write(14, 0x04, &(header[3]));
 	ads1298_busy_wait_write(2, 0x18, wct);			//Turns on WCT and configures it to use the first three channels
+	#ifdef ECG_LEDS
+	gpio_init=0x07|(config->channel_seven_neg?0x80:0x00);	//GPIO4 is an output
+	#endif
 	ads1298_busy_wait_write(1, 0x14, &gpio_init);		//Turn on GPIO (revision 1 PCB this has to be done as floating, future versions poss have LEDs)
 	ads1298_busy_wait_read(1, 0x00, &part);			//The first register is the ID register
 	if((part&0x0F)==1)					//If we have a reduced functionality ADS version, reduce enabled channels
