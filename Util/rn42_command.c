@@ -9,7 +9,7 @@ volatile uint8_t RN42_tx_sequence_number;
   * @param Pointer to serial 'number' string, uint8_t variable set to non zero to enable automatic configuration of RN42 modules (typically for new ones)
   * @reval Returns zero for success, nonzero for failure (1==no name, 2==failed to get module into command mode)
   */
-uint8_t RN42_get_name(uint8_t SerialNumber[8], uint8_t allowconfig) {
+uint8_t RN42_get_name(uint8_t SerialNumber[10], uint8_t allowconfig) {
 	if(!RN42_get_command()) {			//If we were able to get Command mode
 		uint8_t datavar;
 		while(anything_in_buff((&Usart1_rx_buff))) { //Empty CMD from buffer
@@ -23,7 +23,7 @@ uint8_t RN42_get_name(uint8_t SerialNumber[8], uint8_t allowconfig) {
 		while(Millis<(millis+150)) {		//Times out after 150ms
 			if(anything_in_buff((&Usart1_rx_buff))) {//Get serial number and place in buffer
 				Get_From_Buffer(&(SerialNumber[counter]),&Usart1_rx_buff);//Take from buffer
-				if((SerialNumber[counter]=='\n') || (SerialNumber[counter]=='\r') || (counter>=7)) { //Break out if '\r' or reach end
+				if((SerialNumber[counter]=='\n') || (SerialNumber[counter]=='\r') || (counter>=9)) { //Break out if '\r' or reach end
 					SerialNumber[counter]=0x00;//Null terminate
 					break;
 				}
@@ -39,7 +39,10 @@ uint8_t RN42_get_name(uint8_t SerialNumber[8], uint8_t allowconfig) {
 			datavar=1;			//One means no name has been assigned
 		}
 		}
-		Usart_Send_Str((char*)"ST,0\r\n");
+		if(!allowconfig)
+			Usart_Send_Str((char*)"ST,0\r\n");//Only turn off remote config if we don't have permission to aonfig the device (i.e. in service)
+		else
+			Usart_Send_Str((char*)"ST,255\r\n");
 		uint32_t millis=Millis;			//Delay routine to allow device to respond
 		while(Millis<(millis+15));
 		Usart_Send_Str((char*)"F,1\r\n");	//Return to (fast) Data mode
@@ -162,6 +165,7 @@ void RN42_conf(void) {
 	Usart_Send_Str((char*)"SH,0000\n");Delay(100000);
 	Usart_Send_Str((char*)"S~,0\n");Delay(100000);
 	Usart_Send_Str((char*)"SL,E\n");Delay(100000);
+	Usart_Send_Str((char*)"ST,255\n");Delay(100000);//Sets remote continuous config
 	Usart_Send_Str((char*)"R,1\n");	//causes the setting to take effect
 	//Wait for buffer to empty
 	while(anything_in_buff(&Usart1_tx_buff))

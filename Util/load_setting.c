@@ -18,6 +18,8 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 			switch(state) {
 			case 0:
 				counter=0;
+				gain=0;
+				mask=0;
 				switch(byte) {
 				case 'M':	//Mask line
 					state=1;
@@ -47,7 +49,7 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 					mask|=1<<counter;
 				if((byte=='0') || (byte=='1'))
 					counter++;
-				else if(byte=='\n' || !br || counter<=8) {
+				if(byte=='\n' || !br || counter>=8) {
 					if(counter && set_struct->enable_mask!=mask) {
 						set_struct->enable_mask=mask;
 						set_struct->updated_flag|=1;
@@ -61,7 +63,7 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 					gain=(byte-0x30);
 					counter++;
 				}
-				else if(byte=='\n' || !br || counter>=2) {
+				if(byte=='\n' || !br || counter>=2) {
 					if(counter && set_struct->gain!=gain && gain<=12) {
 						set_struct->gain=gain;
 						set_struct->updated_flag|=(1<<1);
@@ -78,7 +80,7 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 					c=0;
 					counter++;
 				}
-				else if(byte=='\n' || !br || counter>=1) {
+				if(byte=='\n' || !br || counter>=1) {
 					if(counter && set_struct->channel_seven_neg!=c) {
 						set_struct->channel_seven_neg=c;
 						set_struct->updated_flag|=(1<<2);
@@ -92,7 +94,7 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 					cap=(byte-0x30);
 					counter++;
 				}
-				else if(byte=='\n' || !br || counter>=2) {
+				if(byte=='\n' || !br || counter>=3) {
 					if(counter && set_struct->cap!=cap) {
 						set_struct->cap+=cap;
 						set_struct->updated_flag|=(1<<3);
@@ -105,11 +107,11 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 					gain+=(byte-0x30);
 					counter++;
 				}
-				if((byte>=0x57) && (byte<=0x5C)) {
+				else if((byte>=0x57) && (byte<=0x5C)) {
 					gain+=(byte-0x57+10);
 					counter++;
 				}
-				else if(byte=='\n' || !br || counter>=2) {
+				if(byte=='\n' || !br || counter>=2) {
 					if(counter!=1)//More than one nibble arrived
 						*rtc=gain;
 					state=0;	
@@ -128,13 +130,14 @@ uint8_t read_config_file(FIL* file, ADS_config_type* set_struct, uint8_t* rtc) {
 				if(byte==',') {
 					axis_counter++;
 					axis_sign=0;
+					gain=0;
 					break;
 				}
-				if(byte=='-') {
+				else if(byte=='-') {
 					axis_sign=1;
 					break;
 				}
-				if((byte>=0x30) && (byte<=0x39)) {
+				else if((byte>=0x30) && (byte<=0x39)) {
 					gain*=10;//Move up the previous value
 					gain+=(byte-0x30);
 				}

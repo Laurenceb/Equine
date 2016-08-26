@@ -82,6 +82,7 @@ int main(void)
 		Set_USBClock();
 		USB_Interrupts_Config();
 		USB_Init();
+		setup_pwm();				//The ADS1298 has to have a clk to turn GPIO to init state
 		uint32_t nojack=0x000FFFFF;		//Countdown timer - a few hundered ms of 0v on jack detect forces a shutdown
 		while (bDeviceState != CONFIGURED) {	//Wait for USB config - timeout causes shutdown
 			if((Millis>10000 && bDeviceState == UNCONNECTED)|| !nojack) { //No USB cable - shutdown (Charger pin will be set to open drain, cant be disabled without usb)
@@ -173,7 +174,7 @@ int main(void)
 	else if(!(Sensors&(1<<UBLOXGPS)))
 		deadly_flashes=4;
 	// system has passed battery level check and so file can be opened
-	uint8_t br;
+	uint8_t br=0;
 	if((f_err_code = f_mount(0, &FATFS_Obj))) {
 		Usart_Send_Str((char*)"FatFs mount error\r\n");    //This should only error if internal error
 	}

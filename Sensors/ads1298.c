@@ -142,7 +142,7 @@ uint8_t ads1298_setup(ADS_config_type* config, uint8_t startnow) {
 	/* It is essential to set the device to command mode following reset */
 	ads1298_busy_wait_command(ADS1298_SDATAC);
 	/* Configure the ADS1298 */
-	uint8_t gpio_init=0,config3=0xCC;			//Temp config values
+	uint8_t gpio_init=0x0F,config3=0xCC;			//Temp config values, set all GPIO to input
 	ads1298_busy_wait_write(1, 0x03, &config3);
 	uint32_t m=Millis+180;
 	while(m>Millis)
